@@ -49,22 +49,21 @@ with tf.io.TFRecordWriter(
         writer.write(tf_example.SerializeToString())
         partial += 1
 
-#print('--- Loading Test Dataset ---')
-#
-#data_dir = pathlib.Path('/mnt/hdd_raid/datasets/TinyFace/tinyface/Testing_Set')
-#
-#partial = 1
-#total = len(list(data_dir.glob('*/*.jpg')))
-#
-#with tf.io.TFRecordWriter(
-#    '/mnt/hdd_raid/datasets/TFRecords/TinyFace/Test_Raw.tfrecords'
-#    ) as writer:
-#    for image in list(data_dir.glob('*/*.jpg')):
-#        print('Test image: {}/{}'.format(partial, total))
-#        label = image.parts[-2], image.parts[-1]
-#        img = tf.io.read_file(str(image))
-#        img_shape = tf.shape(tf.image.decode_jpeg(img)).numpy()
-#        tf_example = image_example(img, img_shape, label)
-#        writer.write(tf_example.SerializeToString())
-#        partial += 1
-#
+print('--- Loading Test Dataset ---')
+
+data_dir = pathlib.Path('/mnt/hdd_raid/datasets/TinyFace/tinyface/Testing_Set')
+
+partial = 1
+total = len(list(data_dir.glob('*/*.jpg')))
+
+with tf.io.TFRecordWriter(
+    '/mnt/hdd_raid/datasets/TFRecords/TinyFace/Test_Raw.tfrecords'
+    ) as writer:
+    for image in list(data_dir.glob('*/*.jpg')):
+        print('Test image: {}/{}'.format(partial, total))
+        label = image.parts[-2], image.parts[-1]
+        img = tf.io.read_file(str(image))
+        img_shape = tf.shape(tf.image.decode_jpeg(img)).numpy()
+        tf_example = image_example(img, img_shape, label)
+        writer.write(tf_example.SerializeToString())
+        partial += 1
