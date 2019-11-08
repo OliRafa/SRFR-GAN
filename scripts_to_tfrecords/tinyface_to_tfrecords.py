@@ -1,6 +1,6 @@
 import tensorflow as tf
 import pathlib
-import timing
+import utility.timing
 
 tf.debugging.set_log_device_placement(True)
 

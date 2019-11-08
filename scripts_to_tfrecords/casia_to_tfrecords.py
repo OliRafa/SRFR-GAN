@@ -1,7 +1,7 @@
 import tensorflow as tf
 import pandas as pd
 import pathlib
-import timing
+import utility.timing
 
 print('--- Loading Metadata ---')
 
