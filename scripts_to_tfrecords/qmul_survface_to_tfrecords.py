@@ -35,32 +35,15 @@ def image_example(image_string, image_shape, label):
 
 print('--- Loading Train Dataset ---')
 
-data_dir = pathlib.Path('/mnt/hdd_raid/datasets/TinyFace/tinyface/Training_Set')
+data_dir = pathlib.Path(
+    '/mnt/hdd_raid/datasets/QMUL-SurvFace/Challenge_Train_Validation_Set/training_set'
+)
 
 partial = 1
 total = len(list(data_dir.glob('*/*.jpg')))
 
 with tf.io.TFRecordWriter(
-    '/mnt/hdd_raid/datasets/TFRecords/testando.tfrecords'
-    ) as writer:
-    for image in list(data_dir.glob('*/*.jpg')):
-        print('Test image: {}/{}'.format(partial, total))
-        label = image.parts[-2], image.parts[-1]
-        img = tf.io.read_file(str(image))
-        img_shape = tf.shape(tf.image.decode_jpeg(img)).numpy()
-        tf_example = image_example(img, img_shape, label)
-        writer.write(tf_example.SerializeToString())
-        partial += 1
-
-print('--- Loading Test Dataset ---')
-
-data_dir = pathlib.Path('/mnt/hdd_raid/datasets/TinyFace/tinyface/Testing_Set')
-
-partial = 1
-total = len(list(data_dir.glob('*/*.jpg')))
-
-with tf.io.TFRecordWriter(
-    '/mnt/hdd_raid/datasets/TFRecords/TinyFace/Test_Raw.tfrecords'
+    '/mnt/hdd_raid/datasets/TFRecords/QMUL-SurvFace/Train_Raw.tfrecords'
     ) as writer:
     for image in list(data_dir.glob('*/*.jpg')):
         print('Test image: {}/{}'.format(partial, total))

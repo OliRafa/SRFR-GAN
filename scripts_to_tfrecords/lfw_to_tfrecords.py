@@ -1,5 +1,8 @@
-import tensorflow as tf
+import os
+import sys
 import pathlib
+import tensorflow as tf
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 import utility.timing
 
 print('--- Setting Functions ---')
