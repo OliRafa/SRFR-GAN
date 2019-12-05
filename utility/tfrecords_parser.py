@@ -177,3 +177,31 @@ def read_tinyface(serialized_dataset):
         example['class_id'],
         example['sample']
     )
+
+def read_qmul_survface(serialized_dataset):
+    """Parser for the QMUL-SurvFace dataset, saved in TFRecods format.
+
+    Arguments:
+        serialized_dataset: dataset from tf.data.TFRecordDataset
+
+    Output:
+        MapDataset with shape: `(image_raw, class_id, sample)`
+    """
+
+    image_feature_description = {
+        'height': tf.io.FixedLenFeature([], tf.int64),
+        'width': tf.io.FixedLenFeature([], tf.int64),
+        'depth': tf.io.FixedLenFeature([], tf.int64),
+        'class_id': tf.io.FixedLenFeature([], tf.string),
+        'sample': tf.io.FixedLenFeature([], tf.string),
+        'image_raw': tf.io.FixedLenFeature([], tf.string),
+    }
+    example = tf.io.parse_single_example(
+        serialized_dataset,
+        image_feature_description
+    )
+    return (
+        example['image_raw'],
+        example['class_id'],
+        example['sample']
+    )
