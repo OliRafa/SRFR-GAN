@@ -1,83 +1,145 @@
-import tensorflow as tf
-import tensorflow_datasets as tfds
-from tensorflow import keras
-from resnet_model import ResNet
-from tfrecords_parser import read_casia, read_lfw, read_ms_celeb, read_vggface2
+"""Main training module."""
+import logging
 import datetime
 
+import tensorflow as tf
+from tensorflow import keras
+from models.resnet_model2 import ResNet
+from input_data import augment_dataset, load_dataset, normalize_dataset
+from training.train import train
+
+logging.basicConfig(
+    filename='train_logs.txt',
+    level=logging.INFO
+)
+LOGGER = logging.getLogger(__name__)
+
+AUTOTUNE = tf.data.experimental.AUTOTUNE
+NETWORK_SETTINGS = {
+    'embedding_size': 512,
+    'scale': 64,
+    'angular_margin': 0.5,
+}
+
+TRAIN_SETTINGS = {
+    'batch_size': 64,
+    'learning_rate': 0.1,
+    'momentum': 0.9,
+    'weight_decay': 5e-4,
+    'iterations': 400_000
+}
+
+def _num_epochs(iterations, len_dataset, batch_size):
+    train_size = tf.math.ceil(len_dataset, batch_size)
+    return tf.math.ceil(iterations / train_size)
+
 def main():
+    """Main training function."""
+    train_dataset, num_train_classes, dataset_len = load_dataset('VGGFace2')
+    train_dataset = train_dataset.map(augment_dataset)
+    train_dataset = train_dataset.map(
+        lambda image, class_id: (normalize_dataset(image), class_id)
+    )
+    train_dataset = train_dataset.shuffle(buffer_size=2 * dataset_len)\
+        .batch(TRAIN_SETTINGS['batch_size']).prefetch(buffer_size=AUTOTUNE)
 
-    raw_image_dataset = tf.data.TFRecordDataset('testing.tfrecords')
+    test_dataset, _, test_dataset_len = load_dataset(
+        'LFW',
+        remove_overlaps=False,
+        sample_ids=True
+    )
+    test_dataset = test_dataset.map(augment_dataset)
+    test_dataset = test_dataset.map(
+        lambda image, class_id: (normalize_dataset(image), class_id)
+    )
+    test_dataset = test_dataset.shuffle(buffer_size=2 * test_dataset_len)\
+        .batch(TRAIN_SETTINGS['batch_size']).prefetch(buffer_size=AUTOTUNE)
 
-    parsed_image_dataset = raw_image_dataset.map(read_vggface2)
+    distributed_strategy = tf.distribute.MirroredStrategy()
 
-    def preprocess(image):
-        image = tf.image.decode_jpeg(image)
-        image = tf.image.convert_image_dtype(image, tf.float32)
-        image = tf.image.resize(image, [224, 224])
-        return image
+    distributed_train_dataset = distributed_strategy\
+        .experimental_distribute_dataset(train_dataset)
+    distributed_test_dataset = distributed_strategy\
+        .experimental_distribute_dataset(test_dataset)
 
-    parsed_image_dataset['image_raw'] = parsed_image_dataset['image_raw'].map(preprocess)
-
-    train_ds = parsed_image_dataset.shuffle(batch_size=len(parsed_image_dataset))
-
-    for image_features, class_id, sample, name, gender in train_ds.take(10):
-
-        #image = tf.io.decode_jpeg(image_features)
-        #image_raw = image_features['image_raw'].numpy()
-        print('Class: {} - Sample: {} - Name: {} - Gender: {}'.format(
-            class_id,
-            sample,
-            name.numpy().decode('UTF-8'),
-            gender
-        ))
-
-    model = ResNet(50, 4)
-
-    optimizer = keras.optimizers.SGD(
-        learning_rate=0.1,
-        momentum=0.9
+    EPOCHS = _num_epochs(
+        TRAIN_SETTINGS['iterations'],
+        dataset_len,
+        TRAIN_SETTINGS['batch_size']
     )
 
-    mse = keras.losses.MeanSquaredError()
+    model = ResNet(50, NETWORK_SETTINGS['embedding_size'])
 
-    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-    train_summary_writer = tf.summary.create_file_writer(train_log_dir)
+    optimizer = keras.optimizers.SGD(
+        learning_rate=TRAIN_SETTINGS['learning_rate'],
+        momentum=TRAIN_SETTINGS['momentum']
+    )
+
+    checkpoint = tf.train.Checkpoint(
+        step=tf.Variable(1),
+        model=model,
+        optimizer=optimizer
+    )
+    manager = tf.train.CheckpointManager(
+        checkpoint,
+        directory='./training_checkpoints',
+        max_to_keep=3
+    )
+
+    CURRENT_TIME = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    train_summary_writer = tf.summary.create_file_writer(
+        'logs/gradient_tape/{}/train'.format(CURRENT_TIME)
+    )
+    test_summary_writer = tf.summary.create_file_writer(
+        'logs/gradient_tape/{}/test'.format(CURRENT_TIME)
+    )
+    #current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    #train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+    #train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
     #logdir = "logs/"
 
     #tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
 
-    print('-------- Starting Training --------')
-    model._set_inputs(train_ds)
+    LOGGER.info('-------- Starting Training --------')
+    checkpoint.restore(manager.latest_checkpoint)
+    if manager.latest_checkpoint:
+        LOGGER.info("Restored from {}".format(manager.latest_checkpoint))
+    else:
+        LOGGER.info("Initializing from scratch.")
 
-    for epoch in range(2):
-        print('Start of epoch {}'.format(epoch + 1))
-        #for step, train_lr in enumerate(train_ds):
-        print(train_ds.shape)
-        with tf.GradientTape() as tape:
-            logits = model(train_ds)
-            loss_value = mse(tf.zeros([4, 4]), logits)
-        grads = tape.gradient(loss_value, model.trainable_weights)
-        optimizer.apply_gradients(zip(grads, model.trainable_weights))
+    for epoch in range(EPOCHS):
+        LOGGER.info('Start of epoch {}'.format(epoch + 1))
 
+        loss_value = train(
+            model,
+            train_dataset,
+            num_train_classes,
+            TRAIN_SETTINGS['batch_size'],
+            optimizer,
+            NETWORK_SETTINGS['scale'],
+            NETWORK_SETTINGS['angular_margin']
+        )
         with train_summary_writer.as_default():
-            tf.summary.scalar('loss', float(loss_value), step=epoch)
+            tf.summary.scalar('loss', loss_value, step=epoch + 1)
+            tf.summary.scalar('accuracy', train_accuracy.result(), step=epoch + 1)
 
-            #psnr = tf.image.psnr(logits, train_gt, max_val=1.0)
-        #ssim_acc = ssim(logits, train_gt, max_val=255)
-        print('Epoch {}, Loss: {:.10f}'.format(
-            epoch+1,
+
+        LOGGER.info('Epoch {}, Loss: {:.10f}'.format(
+            epoch + 1,
             float(loss_value)
         ))
 
-        #psnr.reset_state()
-        #ssim.reset_state()
-        
-        model.save('save/resnet_epoch_{}'.format(epoch+1), save_format='tf')
-        model.save_weights('save_w/resnet_epoch_{}'.format(epoch+1), save_format='tf')
+        checkpoint.step.assign_add(1)
+        if int(checkpoint.step) % 20 == 0:
+            save_path = manager.save()
+            LOGGER.info("Saved checkpoint for epoch {}: {}".format(
+                int(checkpoint.step),
+                save_path
+            ))
 
+        #if epoch % 50 == 0:
+            # Test
 
 if __name__ == "__main__":
     main()

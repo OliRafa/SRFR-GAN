@@ -2,7 +2,7 @@
 
 Works encapsulating any result of a function inside the Result class, and
 decorating the next function to be called with the bind decorator."""
-from functools import wraps
+from functools import namedtuple, wraps
 
 class Result():
     """Base class for result output for any function within a pipeline.
@@ -15,11 +15,15 @@ class Result():
             'Success' or 'Failure'.
         payload: Return of the function.
     """
-    __slots__ = ('_result', '_payload')
+    __slots__ = ('_result', '_payload', '_args')
 
-    def __init__(self, result, payload):
+    def __init__(self, result, payload, args=None):
         self._result = result
-        self._payload = payload
+        if args:
+            self._payload = payload
+        else:
+            self._payload = (payload, )
+        self._args = args
 
     def get_result(self):
         """Getter for Result.
@@ -33,6 +37,8 @@ class Result():
 
         ## Returns: the payload.
         """
+        if self._args:
+            return self._payload, self._args
         return self._payload
 
 def bind(function):
@@ -46,6 +52,9 @@ def bind(function):
     def _bind(Result, *args, **kwargs):
         """Inner class to handle the switch case of result."""
         if Result.get_result() == 'Success':
+            #print(*Result.get_payload())
             return function(*Result.get_payload(), *args, **kwargs)
         return Result
     return _bind
+
+ImageContainer = namedtuple('ImageContainer', ('image', 'image_path'))

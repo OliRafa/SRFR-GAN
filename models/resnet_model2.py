@@ -1,5 +1,5 @@
-import tensorflow as tf
-from tensorflow import keras
+"""ResNet Model.
+Only the ResNet50, Resnet101 and ResNet152 were implemented."""
 from tensorflow.keras import Model, Sequential
 from tensorflow.keras.layers import (
     Add,
@@ -7,6 +7,7 @@ from tensorflow.keras.layers import (
     BatchNormalization,
     Conv2D,
     Dense,
+    Dropout,
     Flatten,
     MaxPool2D,
     ReLU,
@@ -17,7 +18,7 @@ from tensorflow.keras.layers import (
 #    def __init__(self):
 #        super(ConvBlock, self).__init__()
 #        self._conv1 = Conv2D(
-#            
+#
 #        )
 #        self._bn1 = BatchNormalization()
 #        self._relu1 = ReLU()
@@ -42,8 +43,8 @@ class Shortcut(Model):
         self._bn = BatchNormalization()
 
     def call(self, input_tensor):
-        x = self._conv(input_tensor)
-        return self._bn(x)
+        output = self._conv(input_tensor)
+        return self._bn(output)
 
 class Bottleneck(Model):
     """Model class for the Bottleneck Convolutional Block.
@@ -51,8 +52,8 @@ class Bottleneck(Model):
     # Arguments:
         filters: List of the filters to be used in the layers.
         stride: Value of the stride to be used in the layers.
-        first_conv_layer: If it's the first layer of the block to be created,
-        which implies that a downsampler conv layer has to be used on the input.
+        first_conv_layer: If it's the first layer of the block to be created,\
+ which implies that a downsampler conv layer has to be used on the input.
     """
     def __init__(self, filters, stride, first_conv_layer=False):
         super(Bottleneck, self).__init__()
@@ -93,26 +94,16 @@ class Bottleneck(Model):
         else:
             residual = input_tensor
 
-        #print('residual:')
-        #print(residual.shape)
-        #print('input shape:')
-        #print(input_tensor.shape)
-        x = self._conv1(input_tensor)
-        x = self._bn1(x)
-        x = self._relu1(x)
-        #print('after conv 1x1:')
-        #print(x.shape)
-        x = self._conv2(x)
-        x = self._bn2(x)
-        x = self._relu2(x)
-        #print('after conv 3x3:')
-        #print(x.shape)
-        x = self._conv3(x)
-        x = self._bn3(x)
-        #print('after conv 1x1_2:')
-        #print(x.shape)
-        x = Add()([x, residual])
-        return ReLU()(x)
+        output = self._conv1(input_tensor)
+        output = self._bn1(output)
+        output = self._relu1(output)
+        output = self._conv2(output)
+        output = self._bn2(output)
+        output = self._relu2(output)
+        output = self._conv3(output)
+        output = self._bn3(output)
+        output = Add()([output, residual])
+        return ReLU()(output)
 
 
 RESNET_CONFIG = {
@@ -138,12 +129,11 @@ class ResNet(Model):
     # Return:
         The ResNet model.
     """
-    def __init__(self, depth=50, categories=1000):
+    def __init__(self, depth=50, categories=512):
         super(ResNet, self).__init__()
         global RESNET_CONFIG, LAYER_CONFIG
 
         self._input = Conv2D(
-            
             filters=64,
             kernel_size=(7, 7),
             strides=2,
@@ -161,13 +151,16 @@ class ResNet(Model):
                 RESNET_CONFIG[depth],
                 LAYER_CONFIG
             )
-        self._avg_pool = AveragePooling2D((1, 1), name='avg_pooling')
+        #self._avg_pool = AveragePooling2D((1, 1), name='avg_pooling')
         self._flatten = Flatten(name='flatten')
+        self._bn = BatchNormalization(momentum=0.9, epsilon=2e-05)
+        self._dropout = Dropout(rate=0.4)
         self._fully_connected = Dense(
             units=categories,
             activation='softmax',
             name='fully_connected'
         )
+        self._bn2 = BatchNormalization(momentum=0.9, epsilon=2e-05)
 
     def _generate_layers(self, layers, filters):
         conv2 = Sequential(name='conv_2')
@@ -193,19 +186,17 @@ class ResNet(Model):
         return conv2, conv3, conv4, conv5
 
     def call(self, input):
-        x = ZeroPadding2D(padding=(3, 3), name='conv1_pad')(input)
-        #print(x.shape)
-        x = self._input(x)
-        #print(x.shape)
-        x = ZeroPadding2D(padding=(1, 1), name='pool1_pad')(x)
-        #print(x.shape)
-        x = self._max_pool(x)
-        #print(x.shape)
-        x = self._conv2(x)
-        x = self._conv3(x)
-        x = self._conv4(x)
-        x = self._conv5(x)
-        x = self._avg_pool(x)
-        x = self._flatten(x)
-        x = self._fully_connected(x)
-        return x, self._fully_connected.get_weights()
+        output = ZeroPadding2D(padding=(3, 3), name='conv1_pad')(input)
+        output = self._input(output)
+        output = ZeroPadding2D(padding=(1, 1), name='pool1_pad')(output)
+        output = self._max_pool(output)
+        output = self._conv2(output)
+        output = self._conv3(output)
+        output = self._conv4(output)
+        output = self._conv5(output)
+        output = self._bn(output)
+        output = self._dropout(output)
+        output = self._flatten(output)
+        output = self._fully_connected(output)
+        output = self._bn2(output)
+        return output, self._bn2.get_weights()

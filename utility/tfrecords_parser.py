@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+@tf.function
 def read_vggface2(serialized_dataset):
     """Parser for the VGGFace2 dataset, saved in TFRecods format.
 
@@ -24,8 +25,23 @@ def read_vggface2(serialized_dataset):
         serialized_dataset,
         image_feature_description
     )
+
+    image = image = tf.io.decode_raw(example['image_raw'], tf.uint8)
+    height = tf.cast(example['height'], tf.int32)
+    width = tf.cast(example['width'], tf.int32)
+    depth = tf.cast(example['depth'], tf.int32)
+
+    #image_shape = tf.stack([height, width, depth])
+    image_shape = [example['height'], example['width'], example['depth']]
+    #image_shape = [height, width, depth]
+    #print(image_shape)
+    #image = tf.reshape(image, image_shape)
+
     return (
-        example['image_raw'],
+        image,
+        height,
+        width,
+        depth,
         example['class_id'],
         example['sample'],
         example['name'],

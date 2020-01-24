@@ -1,7 +1,21 @@
 # File created using '.gitignore Generator' for Visual Studio Code: https://bit.ly/vscode-gig
 
-# Created by https://www.gitignore.io/api/linux,visualstudiocode,macos,python,venv,virtualenv
-# Edit at https://www.gitignore.io/?templates=linux,visualstudiocode,macos,python,venv,virtualenv
+# Created by https://www.gitignore.io/api/visualstudiocode,virtualenv,venv,python,macos,linux,jupyternotebooks
+# Edit at https://www.gitignore.io/?templates=visualstudiocode,virtualenv,venv,python,macos,linux,jupyternotebooks
+
+### JupyterNotebooks ###
+# gitignore template for Jupyter Notebooks
+# website: http://jupyter.org/
+
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Remove previous ipynb_checkpoints
+#   git rm -r .ipynb_checkpoints/
 
 ### Linux ###
 *~
@@ -185,7 +199,7 @@ pip-selfcheck.json
 # Ignore all local history of files
 .history
 
-# End of https://www.gitignore.io/api/linux,visualstudiocode,macos,python,venv,virtualenv
+# End of https://www.gitignore.io/api/visualstudiocode,virtualenv,venv,python,macos,linux,jupyternotebooks
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
 
@@ -194,3 +208,7 @@ pip-selfcheck.json
 .vscode/launch.json
 .vscode/extensions.json
 .pylintrc
+extra
+FDA_Logs_extra_final.txt
+nohup.out
+test5.txt

@@ -39,8 +39,8 @@ def image_example(image_string, image_shape, label, metadata):
         'depth': _int64_feature(image_shape[2]),
         'class_id': _bytes_feature(label[0].encode('UTF-8')),
         'sample': _bytes_feature(label[1].encode('UTF-8')),
-        'name': _bytes_feature(metadata[0,1].encode('UTF-8')),
-        'gender': _bytes_feature(metadata[0,-1].encode('UTF-8')),
+        'name': _bytes_feature(metadata[0, 1].encode('UTF-8')),
+        'gender': _bytes_feature(metadata[0, -1].encode('UTF-8')),
         'image_raw': _bytes_feature(image_string),
     }
 
