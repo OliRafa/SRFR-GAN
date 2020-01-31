@@ -3,7 +3,6 @@ Only the ResNet50, Resnet101 and ResNet152 were implemented."""
 from tensorflow.keras import Model, Sequential
 from tensorflow.keras.layers import (
     Add,
-    AveragePooling2D,
     BatchNormalization,
     Conv2D,
     Dense,
@@ -33,14 +32,15 @@ from tensorflow.keras.layers import (
 #        return x
 
 class Shortcut(Model):
-    def __init__(self, filter, stride):
+    def __init__(self, filter, stride, trainable=False):
         super(Shortcut, self).__init__()
+        self._trainable = trainable
         self._conv = Conv2D(
             filters=filter,
             kernel_size=(1, 1),
             strides=stride
         )
-        self._bn = BatchNormalization()
+        self._bn = BatchNormalization(trainable=self._trainable)
 
     def call(self, input_tensor):
         output = self._conv(input_tensor)
@@ -55,7 +55,7 @@ class Bottleneck(Model):
         first_conv_layer: If it's the first layer of the block to be created,\
  which implies that a downsampler conv layer has to be used on the input.
     """
-    def __init__(self, filters, stride, first_conv_layer=False):
+    def __init__(self, filters, stride, first_conv_layer=False, trainable=False):
         super(Bottleneck, self).__init__()
         if first_conv_layer:
             self._sc_layer = True
@@ -66,12 +66,14 @@ class Bottleneck(Model):
             self._sc_layer = False
             self._padding = 'valid'
 
+        self._trainable = trainable
+
         self._conv1 = Conv2D(
             filters=filters[0],
             kernel_size=(1, 1),
             strides=(1, 1)
         )
-        self._bn1 = BatchNormalization()
+        self._bn1 = BatchNormalization(trainable=self._trainable)
         self._relu1 = ReLU()
         self._conv2 = Conv2D(
             filters=filters[1],
@@ -79,18 +81,22 @@ class Bottleneck(Model):
             strides=stride,
             padding='same'
         )
-        self._bn2 = BatchNormalization()
+        self._bn2 = BatchNormalization(trainable=self._trainable)
         self._relu2 = ReLU()
         self._conv3 = Conv2D(
             filters=filters[2],
             kernel_size=(1, 1),
             strides=(1, 1)
         )
-        self._bn3 = BatchNormalization()
+        self._bn3 = BatchNormalization(trainable=self._trainable)
 
     def call(self, input_tensor):
         if self._sc_layer:
-            residual = Shortcut(self._sc_filter, self._sc_stride)(input_tensor)
+            residual = Shortcut(
+                self._sc_filter,
+                self._sc_stride,
+                self._trainable
+            )(input_tensor)
         else:
             residual = input_tensor
 
@@ -129,9 +135,11 @@ class ResNet(Model):
     # Return:
         The ResNet model.
     """
-    def __init__(self, depth=50, categories=512):
+    def __init__(self, depth=50, categories=512, trainable=False):
         super(ResNet, self).__init__()
         global RESNET_CONFIG, LAYER_CONFIG
+
+        self._trainable = trainable
 
         self._input = Conv2D(
             filters=64,
@@ -153,40 +161,48 @@ class ResNet(Model):
             )
         #self._avg_pool = AveragePooling2D((1, 1), name='avg_pooling')
         self._flatten = Flatten(name='flatten')
-        self._bn = BatchNormalization(momentum=0.9, epsilon=2e-05)
+        self._bn = BatchNormalization(
+            momentum=0.9,
+            epsilon=2e-05,
+            trainable=self._trainable
+        )
         self._dropout = Dropout(rate=0.4)
         self._fully_connected = Dense(
             units=categories,
             activation='softmax',
             name='fully_connected'
         )
-        self._bn2 = BatchNormalization(momentum=0.9, epsilon=2e-05)
+        self._bn2 = BatchNormalization(
+            momentum=0.9,
+            epsilon=2e-05,
+            trainable=self._trainable
+        )
 
     def _generate_layers(self, layers, filters):
         conv2 = Sequential(name='conv_2')
-        conv2.add(Bottleneck(filters['conv_2'], 2, True))
+        conv2.add(Bottleneck(filters['conv_2'], 2, True, self._trainable))
         for _ in range(1, layers[0]):
-            conv2.add(Bottleneck(filters['conv_2'], 1))
+            conv2.add(Bottleneck(filters['conv_2'], 1, self._trainable))
 
         conv3 = Sequential(name='conv_3')
-        conv3.add(Bottleneck(filters['conv_3'], 2, True))
+        conv3.add(Bottleneck(filters['conv_3'], 2, True, self._trainable))
         for _ in range(1, layers[1]):
-            conv3.add(Bottleneck(filters['conv_3'], 1))
+            conv3.add(Bottleneck(filters['conv_3'], 1, self._trainable))
 
         conv4 = Sequential(name='conv_4')
-        conv4.add(Bottleneck(filters['conv_4'], 2, True))
+        conv4.add(Bottleneck(filters['conv_4'], 2, True, self._trainable))
         for _ in range(1, layers[1]):
-            conv4.add(Bottleneck(filters['conv_4'], 1))
+            conv4.add(Bottleneck(filters['conv_4'], 1, self._trainable))
 
         conv5 = Sequential(name='conv_5')
-        conv5.add(Bottleneck(filters['conv_5'], 2, True))
+        conv5.add(Bottleneck(filters['conv_5'], 2, True, self._trainable))
         for _ in range(1, layers[1]):
-            conv5.add(Bottleneck(filters['conv_5'], 1))
+            conv5.add(Bottleneck(filters['conv_5'], 1, self._trainable))
 
         return conv2, conv3, conv4, conv5
 
-    def call(self, input):
-        output = ZeroPadding2D(padding=(3, 3), name='conv1_pad')(input)
+    def call(self, input_tensor):
+        output = ZeroPadding2D(padding=(3, 3), name='conv1_pad')(input_tensor)
         output = self._input(output)
         output = ZeroPadding2D(padding=(1, 1), name='pool1_pad')(output)
         output = self._max_pool(output)

@@ -1,6 +1,22 @@
 """This module contains functions used to train the network."""
 import tensorflow as tf
-from losses import compute_arcloss
+from training.losses import compute_arcloss
+#from losses import compute_arcloss
+
+@tf.function
+def adjust_learning_rate(current_learning_rate: float, epoch: int = 1) -> float:
+    """Adjusts learning rate based on the current value and a giving epoch.
+
+    ## Parameters
+        current_learning_rate: Current value for the learning rate.
+        epoch: Epoch number.
+
+    ## Returns
+        New value for the learning rate.
+    """
+    if epoch % 20 == 0:
+        return current_learning_rate / 10
+    return current_learning_rate
 
 @tf.function
 def _train_step(
@@ -8,8 +24,8 @@ def _train_step(
         images,
         classes,
         num_classes,
-        scale,
-        margin
+        scale: float,
+        margin: float,
 ):
     """Does a training step
 
@@ -38,14 +54,15 @@ def _train_step(
     return loss_value, grads
 
 @tf.function
-def train(
+def train_model(
         model,
         dataset,
         num_classes,
         batch_size,
         optimizer,
-        scale,
-        margin
+        train_loss_function,
+        scale: float,
+        margin: float,
     ) -> float:
     """Train the model using the given dataset, compute the loss_function and\
  apply the optimizer.
@@ -56,7 +73,8 @@ def train(
         num_classes:
         batch_size:
         optimizer:
-        s:
+        train_loss_function:
+        scale:
         margin:
 
     ## Returns:
@@ -78,4 +96,4 @@ def train(
                 float(loss_value)
             ))
             print('Seen so far: {} samples'.format((step + 1) * batch_size))
-    return loss_value
+    return train_loss_function(loss_value)

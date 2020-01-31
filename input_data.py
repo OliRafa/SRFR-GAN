@@ -15,7 +15,7 @@ def _convert_image(image):
     return tf.image.decode_jpeg(image, channels=3)
 
 @tf.function
-def normalize_dataset(image):
+def normalize_images(image):
     """Normalizes a given image in format [0, 255] to (-1, 1) by subtracting
     127.5 and then dividing by 128.
 
@@ -223,13 +223,13 @@ def load_dataset(
 
     if concatenate:
         dataset = _load_dataset(dataset.train, overlaps)
-        return dataset.concatenate(
-            _load_dataset(dataset.test, overlaps),
+        return (
+            dataset.concatenate(_load_dataset(dataset.test, overlaps)),
             (_get_number_of_classes(dataset.train, overlaps) +
              _get_number_of_classes(dataset.test, overlaps)),
             (_get_dataset_size(dataset.train, overlaps) +
              _get_dataset_size(dataset.test, overlaps),)
-        )
+            )
 
     return (
         _load_dataset(dataset.train, overlaps),

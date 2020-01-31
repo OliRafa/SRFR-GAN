@@ -1,5 +1,4 @@
 import os
-import sys
 import logging
 import glob
 from functools import partial
@@ -16,7 +15,7 @@ from functional_error_handling import bind, ImageContainer, Result
 import gc
 
 logging.basicConfig(
-    filename='FDA_Logs_extra_final.txt',
+    filename='face_detector_and_aligner_logs.txt',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
