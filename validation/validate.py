@@ -1,15 +1,14 @@
 import os
 import sys
 
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
 from input_data import augment_dataset, load_dataset, normalize_images
-from lfw_helper import evaluate
 from scipy import interpolate
 from scipy.optimize import brentq
 from sklearn import metrics
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'training'))
-from losses import normalize
+from training.losses import normalize
+from validation.lfw_helper import evaluate
 
 # Get LFW
 # Get embeddings for the faces (with the flipped ones)
