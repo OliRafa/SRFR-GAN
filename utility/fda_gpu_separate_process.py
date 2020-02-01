@@ -32,13 +32,13 @@ def _align_face(image_container, facial_landmarks, crop_shape=(112, 112)):
     """Align faces using the facial landmarks or the bounding box and crops
     them.
 
-    ## Parameters
+    ### Parameters
         image: face image to be aligned.
         facial_landmarks: facial landmarks for the face in the image.
         bounding_box: optional bounding box.
         crop_shape: optional shape for the crop.
 
-    ## Returns
+    ### Returns
         Face image aligned and cropped.
     """
     #print('_align_faces - PID: {}'.format(os.getpid()))
@@ -98,12 +98,12 @@ def _calculate_distance_from_center(image_shape, face):
 def _extract_center_face(image_shape, detected_faces):
     """Extracts the face that's the closest to the center of a image.
 
-    ## Parameters
+    ### Parameters
         image: image with the faces.
         detected_faces: list of resulting bounding boxes and keypoints from
         MTCNN().detect_faces().
 
-    ## Returns
+    ### Returns
         (bounding_box, facial_landmarks) for the closest face to the center of
         the image.
     """
@@ -137,10 +137,10 @@ def _detect_faces(image_container):
     """Detects faces in a given image and returns it's bounding boxes and\
         facial landmarks.
 
-    ## Parameters
+    ### Parameters
         image: image to be searched on.
 
-    ## Returns
+    ### Returns
         (bounding_box, facial_landmarks) for the face.
     """
     #print('_detect_faces - PID: {}'.format(os.getpid()))

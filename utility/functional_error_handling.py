@@ -10,7 +10,7 @@ class Result():
     In combination with 'bind' Decorator, does the implementation of "Railway
     Oriented Programming" for error handling in function pipelines.
 
-    ## Parameters:
+    ### Parameters:
         result - Result of the computation within the function, either
             'Success' or 'Failure'.
         payload: Return of the function.
@@ -28,14 +28,14 @@ class Result():
     def get_result(self):
         """Getter for Result.
 
-        ## Returns: the result.
+        ### Returns: the result.
         """
         return self._result
 
     def get_payload(self):
         """Getter for Payload.
 
-        ## Returns: the payload.
+        ### Returns: the payload.
         """
         if self._args:
             return self._payload, self._args

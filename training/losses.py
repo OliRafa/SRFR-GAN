@@ -33,11 +33,11 @@ def _compute_euclidean_distance(fake_outputs, ground_truth) -> float:
 def _compute_categorical_crossentropy(logits, labels) -> float:
     """Compute Sparse Categorical Crossentropy.
 
-    ## Parameters:
+    ### Parameters:
         logits: the logits
         labels: the labels
 
-    ## Returns:
+    ### Returns:
         the computed loss.
     """
     return SparseCategoricalCrossentropy()(
@@ -49,11 +49,11 @@ def _compute_categorical_crossentropy(logits, labels) -> float:
 def _compute_binary_crossentropy(y_true, y_predicted) -> float:
     """Compute Binary Categorical Crossentropy.
 
-    ## Parameters:
+    ### Parameters:
         y_true:
         y_predicted:
 
-    ## Returns:
+    ### Returns:
         the computed loss.
     """
     return BinaryCrossentropy(from_logits=True)(
@@ -76,7 +76,7 @@ def compute_arcloss(
     ) -> float:
     """Compute the ArcLoss.
 
-    ## Parameters
+    ### Parameters
         embeddings: Batch of Embedding vectors where loss will be calculated on.
         ground_truth: Batch of Ground Truth classes.
         fc_weights: Weights extracted from the last Fully Connected layer of\
@@ -85,7 +85,7 @@ def compute_arcloss(
         scale:
         margin:
 
-    ## Returns
+    ### Returns
         The loss value."""
     normalized_weights = normalize(fc_weights, 'weights_normalization')
     normalized_embeddings = normalize(
@@ -200,7 +200,7 @@ def compute_joint_loss(
     """Computes the Joint Loss for Super Resolution Face Recognition, using\
  outputs from Synthetic SRFR and Natural SRFR.
 
-    ## Parameters
+    ### Parameters
         super_resolution: Outputs from the Super Resolution Generator.
         ground_truth_images: High Resolution inputs.
         synthetic_face_recognition: A tuple of (embeddings, ground_truth_\
@@ -212,7 +212,7 @@ classes, fc_weights) from the Natural SRFR.
         scale: Scale parameter for ArcLoss.
         margin: Margin penalty for ArcLoss.
 
-    ## Returns:
+    ### Returns:
         The loss value.
     """
     super_resolution_loss = compute_generator_loss(

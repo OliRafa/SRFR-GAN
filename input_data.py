@@ -19,10 +19,10 @@ def normalize_images(image):
     """Normalizes a given image in format [0, 255] to (-1, 1) by subtracting
     127.5 and then dividing by 128.
 
-    ## Parameters
+    ### Parameters
         image: an image to be normalized.
 
-    ## Returns
+    ### Returns
         the normalized image.
     """
     image = tf.subtract(tf.dtypes.cast(image, dtype=tf.float32), 127.5)
@@ -35,14 +35,14 @@ def _augment_image(image, class_id, sample=None):
     """Flips the given image and adds '-augmented' at the end of the sample
     for data augmentation.
 
-    ## Parameters
+    ### Parameters
         image: image to be flipped.
         class_id: corresponding class for the image, passed through the function
         to be correctly concatenated with the original dataset.
         sample: sample name. Can be None in case the dataset has no sample
         attribute.
 
-    ## Returns
+    ### Returns
         If the dataset has sample attribute, returns (augmented_image, class_id,
         augmented_sample): the flipped image, it's
         class and it's sample name.
@@ -101,10 +101,10 @@ def _load_dataset_from_path(
 def _get_overlapping_identities(dataset_name: str) -> tuple:
     """Loads overlapping identities files for a given dataset.
 
-    ## Parameters
+    ### Parameters
         dataset_name: Name of the dataset.
 
-    ## Returns
+    ### Returns
         Tuple with the identities to be cleaned.
     """
     overlapping = ()
@@ -121,11 +121,11 @@ def _get_number_of_classes(
     ) -> int:
     """Gets the number of classes for a given dataset.
 
-    ## Parameters
+    ### Parameters
         file_path: File path for the dataset.
         overlaps: List of the overlapping identities.
 
-    ## Returns
+    ### Returns
         Number of classes.
     """
     file_path = file_path[:-1]
@@ -142,11 +142,11 @@ def _get_dataset_size(
     ) -> int:
     """Gets the size of a given dataset.
 
-    ## Parameters
+    ### Parameters
         file_path: File path for the dataset.
         overlaps: List of the overlapping identities.
 
-    ## Returns
+    ### Returns
         Number of classes.
     """
     file_path = iglob(file_path)
@@ -170,7 +170,7 @@ def load_dataset(
         'VGGFace2'
     )
 
-    ## Arguments
+    ### Arguments
         dataset_name: Dataset to be loaded.
         test: If true, returns train and test datasets, otherwise only returns
         the training one.
@@ -182,7 +182,7 @@ def load_dataset(
         sample in the dataset. Necessary in case of loading a test dataset that
         will be augmented.
 
-    ## Returns
+    ### Returns
         If test=True, returns two Tensors and number of classes, in the shape
         (train_dataset, test_dataset, num_classes, dataset_length).
         If test=False, returns only one Tensor, number of classes and dataset
@@ -238,7 +238,7 @@ def load_dataset(
     )
 
 #if __name__ == "__main__":
-    ##x = load_datasets()
+    ###x = load_datasets()
     #for a, b, c in x:
     #    print(a)
     #    print(b)
