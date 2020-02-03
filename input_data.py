@@ -1,4 +1,6 @@
 import os
+from typing import Union
+
 import cv2
 import tensorflow as tf
 from collections import namedtuple
@@ -6,7 +8,6 @@ from glob import glob
 from functools import partial
 
 from glob import iglob
-from typing import Union
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
@@ -64,19 +65,29 @@ def augment_dataset(dataset):
     return dataset.concatenate(augmented_dataset)
 
 @tf.function
-def _split_path(file_path):
+def augment_dataset_without_concatenation(dataset):
+    augmented_dataset = dataset.map(_augment_image, num_parallel_calls=AUTOTUNE)
+    augmented_dataset = augmented_dataset.map(lambda x: x[0])
+
+    dataset_zip = dataset.zip((dataset, augmented_dataset))
+    # Reordering dataset to match the format
+    # (image, augmented_image, class_id, sample_id)
+    return dataset_zip.map(lambda x, y: (x[0], y[0], x[1], x[2]))
+
+@tf.function
+def split_path(file_path):
     parts = tf.strings.split(file_path, os.path.sep)
 
     class_id = parts.numpy()[-2].decode('utf-8')
-    sample = parts.numpy()[-1].decode('utf-8').split('.')[0]
+    sample_id = parts.numpy()[-1].decode('utf-8').split('.')[0]
 
-    return class_id, sample
+    return class_id, sample_id
 
 @tf.function
 def _read_image_and_labels(file_path: str, sample_ids: bool):
     image = tf.io.read_file(file_path)
     image = _convert_image(image)
-    class_id, sample = _split_path(file_path)
+    class_id, sample = split_path(file_path)
 
     return image, class_id, sample if sample_ids else image, class_id
 
@@ -147,7 +158,7 @@ def _get_dataset_size(
         overlaps: List of the overlapping identities.
 
     ### Returns
-        Number of classes.
+        Number of samples.
     """
     file_path = iglob(file_path)
     if overlaps:
@@ -159,12 +170,12 @@ def _get_dataset_size(
 def load_dataset(
         dataset_name: str,
         test: bool = True,
-        concatenate: bool = True,
+        concatenate: bool = False,
         remove_overlaps: bool = True,
         sample_ids: bool = False
     ):
-    """Loads the dataset from disk, returning a TF Tensor with shape
-    (image, class_id, sample).
+    """Loads the dataset from disk, returning a TF Tensor with shape\
+ (image, class_id, sample).
 
     Viable datasets: (
         'VGGFace2'
@@ -172,21 +183,23 @@ def load_dataset(
 
     ### Arguments
         dataset_name: Dataset to be loaded.
-        test: If true, returns train and test datasets, otherwise only returns
-        the training one.
-        concatenate: If True, train and test datasets will be concatenated in a
-        single dataset
-        remove_overlap: If True, overlapping identities between the given
-        dataset and others (Validation Datasets) will be removed.
-        sample_ids: If True, return a Tensor containing the sample_id for each
-        sample in the dataset. Necessary in case of loading a test dataset that
-        will be augmented.
+        test: If true, returns train and test datasets, otherwise only returns\
+ the training one.
+        concatenate: If True, train and test datasets will be concatenated in a\
+ single dataset
+        remove_overlap: If True, overlapping identities between the given\
+ dataset and others (Validation Datasets) will be removed.
+        sample_ids: If True, return a Tensor containing the sample_id for each\
+ sample in the dataset. Necessary in case of loading a test dataset that will\
+ be augmented.
 
     ### Returns
-        If test=True, returns two Tensors and number of classes, in the shape
-        (train_dataset, test_dataset, num_classes, dataset_length).
-        If test=False, returns only one Tensor, number of classes and dataset
-        length.
+        If test=True, returns two tuples, one for Train and one for Test, with\
+ (train_dataset, num_train_classes, dataset_length) - dataset Tensor, number of\
+ classes, and dataset length - in the shape of (train, test).
+        If test=False or concatenate=True, returns only one tuple\
+ (train_dataset, num_train_classes, dataset_length) Tensor, number of classes\
+ and dataset length.
     """
     Dataset = namedtuple(
         'Dataset',
@@ -214,12 +227,17 @@ def load_dataset(
     )
 
     if test:
-        return (
+        train = (
             _load_dataset(dataset.train, overlaps),
-            _load_dataset(dataset.test, overlaps),
             _get_number_of_classes(dataset.train, overlaps),
-            _get_dataset_size(dataset.train, overlaps)
+            _get_dataset_size(dataset.train, overlaps),
         )
+        test = (
+            _load_dataset(dataset.test, overlaps),
+            _get_number_of_classes(dataset.test, overlaps),
+             _get_dataset_size(dataset.test, overlaps),
+        )
+        return train, test
 
     if concatenate:
         dataset = _load_dataset(dataset.train, overlaps)
@@ -228,13 +246,31 @@ def load_dataset(
             (_get_number_of_classes(dataset.train, overlaps) +
              _get_number_of_classes(dataset.test, overlaps)),
             (_get_dataset_size(dataset.train, overlaps) +
-             _get_dataset_size(dataset.test, overlaps),)
+             _get_dataset_size(dataset.test, overlaps))
             )
 
     return (
         _load_dataset(dataset.train, overlaps),
         _get_number_of_classes(dataset.train, overlaps),
         _get_dataset_size(dataset.train, overlaps)
+    )
+
+@tf.function
+def load_lfw():
+    """Loads the Labeled Faces in the Wild dataset, ready for validation tasks.
+
+    ### Returns
+        The LFW dataset.
+    """
+    dataset, _, _ = load_dataset('LFW', remove_overlaps=False, sample_ids=True)
+    dataset = dataset.map(augment_dataset_without_concatenation)
+    return dataset.map(
+        lambda image, augmented_image, class_id, sample: (
+            normalize_images(image),
+            normalize_images(augmented_image),
+            class_id,
+            sample,
+        )
     )
 
 #if __name__ == "__main__":
