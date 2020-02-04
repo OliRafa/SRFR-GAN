@@ -1,10 +1,20 @@
+"""Helper module for evaluating on Labeled Faces in the Wild.
+
+Original functions created by David Sandberg under MIT Licence.
+
+Forked from: https://github.com/davidsandberg/facenet/blob/master/src/lfw.py \
+and https://github.com/davidsandberg/facenet/blob/master/src/facenet.py
+
+### Exported functions
+    evaluate()
+"""
 import math
 
 import numpy as np
 from sklearn.model_selection import KFold
 from scipy import interpolate
 
-def calculate_accuracy(threshold, dist, actual_issame):
+def _calculate_accuracy(threshold, dist, actual_issame):
     predict_issame = np.less(dist, threshold)
     tp = np.sum(np.logical_and(predict_issame, actual_issame))
     fp = np.sum(np.logical_and(predict_issame, np.logical_not(actual_issame)))
@@ -18,7 +28,7 @@ def calculate_accuracy(threshold, dist, actual_issame):
     acc = float(tp + tn) / dist.size
     return tpr, fpr, acc
 
-def distance(embeddings1, embeddings2, distance_metric=0):
+def _distance(embeddings1, embeddings2, distance_metric=0):
     if distance_metric == 0:
         # Euclidian distance
         diff = np.subtract(embeddings1, embeddings2)
@@ -35,7 +45,7 @@ def distance(embeddings1, embeddings2, distance_metric=0):
 
     return dist
 
-def calculate_val_far(threshold, dist, actual_issame):
+def _calculate_val_far(threshold, dist, actual_issame):
     predict_issame = np.less(dist, threshold)
     true_accept = np.sum(np.logical_and(predict_issame, actual_issame))
     false_accept = np.sum(
@@ -47,7 +57,7 @@ def calculate_val_far(threshold, dist, actual_issame):
     far = float(false_accept) / float(n_diff)
     return val, far
 
-def calculate_val(
+def _calculate_val(
         thresholds,
         embeddings1,
         embeddings2,
@@ -75,12 +85,12 @@ def calculate_val(
             )
         else:
             mean = 0.0
-        dist = distance(embeddings1 - mean, embeddings2 - mean, distance_metric)
+        dist = _distance(embeddings1 - mean, embeddings2 - mean, distance_metric)
 
         # Find the threshold that gives FAR = far_target
         far_train = np.zeros(nrof_thresholds)
         for threshold_idx, threshold in enumerate(thresholds):
-            _, far_train[threshold_idx] = calculate_val_far(
+            _, far_train[threshold_idx] = _calculate_val_far(
                 threshold,
                 dist[train_set],
                 actual_issame[train_set],
@@ -91,7 +101,7 @@ def calculate_val(
         else:
             threshold = 0.0
 
-        val[fold_idx], far[fold_idx] = calculate_val_far(
+        val[fold_idx], far[fold_idx] = _calculate_val_far(
             threshold,
             dist[test_set],
             actual_issame[test_set]
@@ -102,7 +112,7 @@ def calculate_val(
     val_std = np.std(val)
     return val_mean, val_std, far_mean
 
-def calculate_roc(
+def _calculate_roc(
         thresholds,
         embeddings1,
         embeddings2,
@@ -130,12 +140,12 @@ def calculate_roc(
             )
         else:
             mean = 0.0
-        dist = distance(embeddings1 - mean, embeddings2 - mean, distance_metric)
+        dist = _distance(embeddings1 - mean, embeddings2 - mean, distance_metric)
 
         # Find the best threshold for the fold
         acc_train = np.zeros((nrof_thresholds))
         for threshold_idx, threshold in enumerate(thresholds):
-            _, _, acc_train[threshold_idx] = calculate_accuracy(
+            _, _, acc_train[threshold_idx] = _calculate_accuracy(
                 threshold,
                 dist[train_set],
                 actual_issame[train_set]
@@ -146,12 +156,12 @@ def calculate_roc(
                 tprs[fold_idx, threshold_idx],
                 fprs[fold_idx, threshold_idx],
                 _
-            ) = calculate_accuracy(
+            ) = _calculate_accuracy(
                 threshold,
                 dist[test_set],
                 actual_issame[test_set]
             )
-        _, _, accuracy[fold_idx] = calculate_accuracy(
+        _, _, accuracy[fold_idx] = _calculate_accuracy(
             thresholds[best_threshold_index],
             dist[test_set],
             actual_issame[test_set]
@@ -172,7 +182,7 @@ def evaluate(
     thresholds = np.arange(0, 4, 0.01)
     embeddings1 = embeddings[0::2]
     embeddings2 = embeddings[1::2]
-    tpr, fpr, accuracy = calculate_roc(
+    tpr, fpr, accuracy = _calculate_roc(
         thresholds,
         embeddings1,
         embeddings2,
@@ -182,7 +192,7 @@ def evaluate(
         subtract_mean=subtract_mean
     )
     thresholds = np.arange(0, 4, 0.001)
-    val, val_std, far = calculate_val(
+    val, val_std, far = _calculate_val(
         thresholds,
         embeddings1,
         embeddings2,
