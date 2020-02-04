@@ -73,8 +73,8 @@ def _align_face(image_container, facial_landmarks, crop_shape=(112, 112)):
     except Exception as exception:
         return Result(
             'Failure',
-            'An error occurred, probably transformation_matrix is None -\
-            Error: {}'.format(str(exception))
+            f'An error occurred, probably transformation_matrix is None -\
+            Error: {str(exception)}'
         )
 
 def _calculate_distance_from_center(image_shape, face):
@@ -145,9 +145,7 @@ def _detect_faces(image_container):
     if not detected_faces:
         return Result(
             'Failure',
-            ' File: {} had zero faces detected.'.format(
-                image_container.image_path
-            )
+            f' File: {image_container.image_path} had zero faces detected.'
         )
 
     if len(detected_faces) > 1:
@@ -201,11 +199,11 @@ def _save_image(image_container, destination_path):
         )):
         return Result(
             'Success',
-            ' Created file - Path: {}'.format(destination_path)
+            f' Created file - Path: {destination_path}'
         )
     return Result(
         'Failure',
-        ' File {} not saved'.format(destination_path)
+        f' File {destination_path} not saved'
     )
 
 def _read_image(file_path):
@@ -232,10 +230,8 @@ def _read_image(file_path):
     except OSError as exception:
         return Result(
             'Failure',
-            " Image couldn't be loaded - path: {}, Exception: {}".format(
-                file_path,
-                str(exception)
-            )
+            f" Image couldn't be loaded - path: {file_path}, Exception: \
+                {str(exception)}"
         )
 
 def _log_results(Result):

@@ -65,7 +65,7 @@ class MtcnnDetectFaces():
         pid = os.getpid()
         process = psutil.Process(pid)
         mem = process.memory_info().rss / float(2 ** 20)
-        print('PID: {} -- Mem: {}'.format(pid, mem))
+        print(f'PID: {pid} -- Mem: {mem}')
         return mem
 
     def _detect_faces(self):

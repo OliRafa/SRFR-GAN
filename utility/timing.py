@@ -16,26 +16,26 @@ from datetime import timedelta
 
 def secondsToStr(elapsed=None):
     if elapsed is None:
-        return strftime("%Y-%m-%d %H:%M:%S", localtime())
+        return strftime('%Y-%m-%d %H:%M:%S', localtime())
     else:
         return str(timedelta(seconds=elapsed))
 
 def log(s, elapsed=None):
     line = "="*40
     logging.info(line)
-    logging.info('{} - {}'.format(secondsToStr(), s))
+    logging.info(f'{secondsToStr()} - {s}')
     if elapsed:
-        logging.info("Elapsed time: {}".format(elapsed))
+        logging.info(f'Elapsed time: {elapsed}')
     logging.info(line)
 
 def endlog():
     end = time()
     elapsed = end-start
-    log("End Program", secondsToStr(elapsed))
+    log('End Program', secondsToStr(elapsed))
 
 start = time()
 atexit.register(endlog)
-log("Start Program")
+log('Start Program')
 
 #import atexit
 #from time import time, strftime, localtime
