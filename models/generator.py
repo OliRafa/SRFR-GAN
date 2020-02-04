@@ -1,11 +1,8 @@
 import tensorflow as tf
-from tensorflow import keras
 from tensorflow.keras import Model, Sequential
 from tensorflow.keras.layers import (
     Add,
     Conv2D,
-    Dense,
-    Flatten,
     LeakyReLU,
     UpSampling2D
 )
@@ -13,110 +10,124 @@ from tensorflow.keras.layers import (
 class ResidualDenseBlock(Model):
     """.
 
-    # Arguments:
-        filters: List of the filters to be used in the layers.
-        stride: Value of the stride to be used in the layers.
-        first_conv_layer: If it's the first layer of the block to be created,
-        which implies that a downsampler conv layer has to be used on the input.
+    ### Parameters:
+        filters: Number of output filters for each convolutional layer.
+        gc:
+        residual_scailing: Scailing parameter for each residual concatenation.
     """
-    def __init__(self, filters=64, gc=32, scaling_parameter=0.2):
+    def __init__(
+            self,
+            filters: int = 64,
+            gc: int = 32,
+            residual_scailing: float = 0.2
+        ):
         super(ResidualDenseBlock, self).__init__()
-        self._scaling_parameter = scaling_parameter
+        self._residual_scailing = residual_scailing
         self._conv1 = Conv2D(
             filters=gc,
             kernel_size=(3, 3),
             strides=(1, 1),
             padding='same',
-            activation=LeakyReLU(alpha=0.2)
+            activation=LeakyReLU(alpha=0.2),
         )
         self._conv2 = Conv2D(
             filters=gc,
             kernel_size=(3, 3),
             strides=(1, 1),
             padding='same',
-            activation=LeakyReLU(alpha=0.2)
+            activation=LeakyReLU(alpha=0.2),
         )
         self._conv3 = Conv2D(
             filters=gc,
             kernel_size=(3, 3),
             strides=(1, 1),
             padding='same',
-            activation=LeakyReLU(alpha=0.2)
+            activation=LeakyReLU(alpha=0.2),
         )
         self._conv4 = Conv2D(
             filters=gc,
             kernel_size=(3, 3),
             strides=(1, 1),
             padding='same',
-            activation=LeakyReLU(alpha=0.2)
+            activation=LeakyReLU(alpha=0.2),
         )
         self._conv5 = Conv2D(
             filters=filters,
             kernel_size=(3, 3),
             strides=(1, 1),
-            padding='same'
+            padding='same',
         )
 
     def call(self, input_tensor):
-        x1 = self._conv1(input_tensor)
-        x2 = self._conv2(tf.concat([input_tensor, x1], 1))
-        x3 = self._conv3(tf.concat([input_tensor, x1, x2], 1))
-        x4 = self._conv4(tf.concat([input_tensor, x1, x2, x3], 1))
-        x5 = self._conv5(tf.concat([input_tensor, x1, x2, x3, x4], 1))
-        return x5 * self._scaling_parameter + input_tensor
+        output1 = self._conv1(input_tensor)
+        output2 = self._conv2(tf.concat([input_tensor, output1], 1))
+        output3 = self._conv3(tf.concat([input_tensor, output1, output2], 1))
+        output4 = self._conv4(tf.concat(
+            [input_tensor, output1, output2, output3],
+            1,
+        ))
+        output5 = self._conv5(tf.concat(
+            [input_tensor, output1, output2, output3, output4],
+            1,
+        ))
+        return output5 * self._residual_scailing + input_tensor
 
 class RRDB(Model):
-    def __init__(self, filters=64, gc=32, scaling_parameter=0.2):
+    """.
+
+    ### Parameters:
+        filters: Number of output filters for each convolutional layer.
+        gc:
+        residual_scailing: Scailing parameter for each residual concatenation.
+    """
+    def __init__(
+            self,
+            filters: int = 64,
+            gc: int = 32,
+            residual_scailing: float = 0.2
+        ):
         super(RRDB, self).__init__()
-        self._scaling_parameter = scaling_parameter
-        self._rdb_1 = ResidualDenseBlock(filters, gc, scaling_parameter)
-        self._rdb_2 = ResidualDenseBlock(filters, gc, scaling_parameter)
-        self._rdb_3 = ResidualDenseBlock(filters, gc, scaling_parameter)
+        self._residual_scailing = residual_scailing
+        self._rdb_1 = ResidualDenseBlock(filters, gc, residual_scailing)
+        self._rdb_2 = ResidualDenseBlock(filters, gc, residual_scailing)
+        self._rdb_3 = ResidualDenseBlock(filters, gc, residual_scailing)
 
     def call(self, input_tensor):
-        x = self._rdb_1(input_tensor)
-        x = self._rdb_2(x)
-        x = self._rdb_3(x)
+        output = self._rdb_1(input_tensor)
+        output = self._rdb_2(output)
+        output = self._rdb_3(output)
 
-        return x * self._scaling_parameter + input_tensor
+        return output * self._residual_scailing + input_tensor
 
 class GeneratorNetwork(Model):
     """.
 
-    # Arguments:
-        depth: Depth input, only 50, 101 or 152 available.
-        categories: Number of output classes for the Fully Connected layer.
-
-    # Return:
-        .
+    ### Parameters:
+        num_filters: Number of output filters for each convolutional layer.
+        num_gc:
+        num_blocks: Number of RRDB blocks.
+        residual_scailing: Scailing parameter for each residual concatenation.
     """
     def __init__(
             self,
-            num_filters=62,
-            num_gc=32,
-            num_blocks=23,
-            scaling_parameter=0.2
+            num_filters: int = 62,
+            num_gc: int = 32,
+            num_blocks: int = 23,
+            residual_scailing: float = 0.2,
         ):
         super(GeneratorNetwork, self).__init__()
-        self._input = Conv2D(
-            filters=num_filters,
-            kernel_size=(3, 3),
-            strides=1,
-            padding='same',
-            name='conv_input'
-        )
         self._rrdb_block = self._generate_layers(
             num_blocks,
             num_filters,
             num_gc,
-            scaling_parameter
+            residual_scailing,
         )
         self._conv_1 = Conv2D(
             filters=num_filters,
             kernel_size=(3, 3),
             strides=1,
             padding='same',
-            name='conv_after_rrdb_block'
+            name='conv_after_rrdb_block',
         )
         self._upsampling_1 = UpSampling2D(size=(2, 2), interpolation='nearest')
         self._upsampling_conv_1 = Conv2D(
@@ -125,7 +136,7 @@ class GeneratorNetwork(Model):
             strides=1,
             padding='same',
             name='conv_upsampling_1',
-            activation=LeakyReLU(alpha=0.2)
+            activation=LeakyReLU(alpha=0.2),
         )
         self._upsampling_2 = UpSampling2D(size=(2, 2), interpolation='nearest')
         self._upsampling_conv_2 = Conv2D(
@@ -134,7 +145,7 @@ class GeneratorNetwork(Model):
             strides=1,
             padding='same',
             name='conv_upsampling_2',
-            activation=LeakyReLU(alpha=0.2)
+            activation=LeakyReLU(alpha=0.2),
         )
         self._high_resolution_conv = Conv2D(
             filters=num_filters,
@@ -142,28 +153,45 @@ class GeneratorNetwork(Model):
             strides=1,
             padding='same',
             name='conv_high_resolution',
-            activation=LeakyReLU(alpha=0.2)
+            activation=LeakyReLU(alpha=0.2),
         )
         self._last_conv = Conv2D(
             filters=3,
             kernel_size=(3, 3),
             strides=1,
             padding='same',
-            name='conv_last'
+            name='conv_last',
         )
 
-    def _generate_layers(self, layers, filters, gc, scaling_parameter):
+    def _generate_layers(
+            self,
+            num_blocks: int,
+            filters: int,
+            gc: int,
+            residual_scailing: float,
+        ):
+        """Generate a number of RRDB convolutional blocks.
+
+        ### Parameters
+            num_blocks: Number of RRDB blocks.
+            filters: Number of output filters for each convolutional layer.
+            gc:
+            scailing_parameter: Scailing parameter for each residual\
+ concatenation.
+
+        ### Returns
+            A Sequential of size num_blocks * RRDB.
+        """
         blocks = Sequential(name='rrdb_blocks')
-        for _ in range(1, layers[0]):
-            blocks.add(RRDB(filters, gc, scaling_parameter))
+        for _ in range(1, num_blocks):
+            blocks.add(RRDB(filters, gc, residual_scailing))
 
         return blocks
 
     def call(self, input_tensor):
-        fea = self._input(input_tensor)
-        trunk = self._rrdb_block(fea)
+        trunk = self._rrdb_block(input_tensor)
         trunk = self._conv_1(trunk)
-        fea = Add()([fea, trunk])
+        fea = Add()([input_tensor, trunk])
 
         fea = self._upsampling_1(fea)
         fea = self._upsampling_conv_1(fea)
@@ -171,6 +199,4 @@ class GeneratorNetwork(Model):
         fea = self._upsampling_conv_2(fea)
 
         fea = self._high_resolution_conv(fea)
-        fea = self._last_conv(fea)
-
-        return fea
+        return self._last_conv(fea)
