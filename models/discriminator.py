@@ -1,14 +1,11 @@
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import Model, Sequential
+from tensorflow.keras import Model
 from tensorflow.keras.layers import (
-    Add,
     BatchNormalization,
     Conv2D,
     Dense,
     Flatten,
     LeakyReLU,
-    UpSampling2D
 )
 
 class BasicBlock(Model):
@@ -95,7 +92,6 @@ class DiscriminatorNetwork(Model):
         )
         self._fully_connected_2 = Dense(
             1,
-            activation='sigmoid',
             name='fully_connected_02'
         )
 

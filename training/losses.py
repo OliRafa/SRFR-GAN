@@ -114,16 +114,25 @@ def compute_arcloss(
     return _compute_categorical_crossentropy(softmax_output, one_hot_vector)
 
 @tf.function
-def compute_discriminator_loss(real_output, fake_output) -> float:
-    real_loss = _compute_binary_crossentropy(
-        tf.ones_like(real_output),
-        real_output,
+def compute_discriminator_loss(
+        super_resolution_predictions,
+        ground_truth_predictions,
+    ) -> float:
+    super_resolution_mean = tf.math.reduce_mean(super_resolution_predictions)
+    groud_truth_mean = tf.math.reduce_mean(ground_truth_predictions)
+
+    groud_truth_average = ground_truth_predictions - super_resolution_mean
+    super_resolution_average = super_resolution_predictions - groud_truth_mean
+
+    gt_relativistic_average = _compute_binary_crossentropy(
+        tf.ones_like(groud_truth_average),
+        _apply_softmax(groud_truth_average),
     )
-    fake_loss = _compute_binary_crossentropy(
-        tf.zeros_like(fake_output),
-        fake_output,
+    sr_relativistic_average = _compute_binary_crossentropy(
+        tf.zeros_like(super_resolution_average),
+        _apply_softmax(super_resolution_average),
     )
-    return real_loss + fake_loss
+    return (gt_relativistic_average + sr_relativistic_average) / 2
 
 @tf.function
 def _create_vgg_model():
@@ -152,12 +161,35 @@ def _compute_perceptual_loss(
     return weight * _compute_euclidean_distance(fake, real)
 
 @tf.function
-def compute_generator_loss(super_resolution, ground_truth) -> float:
-    perceptual_loss = _compute_perceptual_loss(super_resolution, ground_truth)
-    generator_loss = _compute_binary_crossentropy(
-        tf.ones_like(super_resolution),
-        super_resolution,
+def _generator_loss(
+        super_resolution_predictions,
+        ground_truth_predictions,
+    ):
+    super_resolution_mean = tf.math.reduce_mean(super_resolution_predictions)
+    groud_truth_mean = tf.math.reduce_mean(ground_truth_predictions)
+
+    groud_truth_average = ground_truth_predictions - super_resolution_mean
+    super_resolution_average = super_resolution_predictions - groud_truth_mean
+
+    gt_relativistic_average = _compute_binary_crossentropy(
+        tf.zeros_like(groud_truth_average),
+        _apply_softmax(groud_truth_average),
     )
+    sr_relativistic_average = _compute_binary_crossentropy(
+        tf.ones_like(super_resolution_average),
+        _apply_softmax(super_resolution_average),
+    )
+    return (gt_relativistic_average + sr_relativistic_average) / 2
+
+@tf.function
+def _compute_generator_loss(
+        super_resolution,
+        ground_truth,
+        discriminator_sr_predictions,
+        discriminator_gt_predictions,
+    ) -> float:
+    perceptual_loss = _compute_perceptual_loss(super_resolution, ground_truth)
+    generator_loss = _generator_loss(discriminator_sr_predictions, discriminator_gt_predictions)
     l1_loss = _compute_l1_loss(super_resolution, ground_truth)
     return perceptual_loss + generator_loss + l1_loss
 
@@ -166,15 +198,19 @@ def compute_joint_loss_simple(
         super_resolution,
         embedding,
         ground_truth,
+        discriminator_sr_predictions,
+        discriminator_gt_predictions,
         fc_weights,
         num_classes: int,
         weight: float,
         scale: float = 64,
         margin: float = 0.5,
     ) -> float:
-    super_resolution_loss = compute_generator_loss(
+    super_resolution_loss = _compute_generator_loss(
         super_resolution,
         ground_truth,
+        discriminator_sr_predictions,
+        discriminator_gt_predictions,
     )
     face_recognition_loss = compute_arcloss(
         embedding,
@@ -188,26 +224,27 @@ def compute_joint_loss_simple(
 
 @tf.function
 def compute_joint_loss(
-        super_resolution,
+        super_resolution_images,
         ground_truth_images,
+        discriminator_sr_predictions,
+        discriminator_gt_predictions,
         synthetic_face_recognition,
-        natural_face_recognition,
-        num_classes: int,
-        weight: float,
+        natural_face_recognition=None,
+        weight: float = 0.1,
         scale: float = 64.0,
         margin: float = 0.5,
     ) -> float:
     """Computes the Joint Loss for Super Resolution Face Recognition, using\
- outputs from Synthetic SRFR and Natural SRFR.
+ outputs from Synthetic SRFR and Natural SRFR, or using outputs from Synthetic\
+ SRFR only.
 
     ### Parameters
-        super_resolution: Outputs from the Super Resolution Generator.
+        super_resolution_images: Outputs from the Super Resolution Generator.
         ground_truth_images: High Resolution inputs.
         synthetic_face_recognition: A tuple of (embeddings, ground_truth_\
-classes, fc_weights) from the Synthetic SRFR.
+classes, fc_weights, num_classes) from the Synthetic SRFR.
         natural_face_recognition: A tuple of (embeddings, ground_truth_\
-classes, fc_weights) from the Natural SRFR.
-        num_classes: Total number of classes in the dataset.
+classes, fc_weights, num_classes) from the Natural SRFR.
         weight: Weight for the SR Loss.
         scale: Scale parameter for ArcLoss.
         margin: Margin penalty for ArcLoss.
@@ -215,25 +252,30 @@ classes, fc_weights) from the Natural SRFR.
     ### Returns:
         The loss value.
     """
-    super_resolution_loss = compute_generator_loss(
-        super_resolution,
+    super_resolution_loss = _compute_generator_loss(
+        super_resolution_images,
         ground_truth_images,
+        discriminator_sr_predictions,
+        discriminator_gt_predictions,
     )
     synthetic_face_recognition_loss = compute_arcloss(
         synthetic_face_recognition[0],
         synthetic_face_recognition[1],
         synthetic_face_recognition[2],
-        num_classes,
+        synthetic_face_recognition[3],
         scale,
         margin,
     )
-    natural_face_recognition_loss = compute_arcloss(
-        natural_face_recognition[0],
-        natural_face_recognition[1],
-        natural_face_recognition[2],
-        num_classes,
-        scale,
-        margin,
-    )
-    fr_loss = synthetic_face_recognition_loss + natural_face_recognition_loss
-    return fr_loss + weight * super_resolution_loss
+    if natural_face_recognition:
+        natural_face_recognition_loss = compute_arcloss(
+            natural_face_recognition[0],
+            natural_face_recognition[1],
+            natural_face_recognition[2],
+            synthetic_face_recognition[3],
+            scale,
+            margin,
+        )
+        fr_loss = synthetic_face_recognition_loss + natural_face_recognition_loss
+        return fr_loss + weight * super_resolution_loss
+
+    return synthetic_face_recognition_loss + weight * super_resolution_loss
