@@ -17,6 +17,9 @@ from tensorflow.keras.losses import (
     SparseCategoricalCrossentropy
 )
 
+# Checar diferença entre MeanSquaredError para MSE
+# O mesmo para MeanAbsoluteError e MAE
+
 @tf.function
 def normalize(logits, name: str = None):
     return tf.norm(logits, ord='euclidean', axis=1, name=name)

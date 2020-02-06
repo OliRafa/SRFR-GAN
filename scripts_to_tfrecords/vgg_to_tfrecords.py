@@ -20,7 +20,7 @@ LOGGER.info('--- Setting Functions ---')
 
 def _reduce_resolution(high_resolution_image):
     low_resolution_image = tf.image.resize(high_resolution_image, (28, 28), method='bicubic')
-    return tf.image.encode_png(low_resolution_image)
+    return tf.image.encode_png(low_resolution_image), (28, 28, 3)
 
 def _bytes_feature(value):
     if isinstance(value, type(tf.constant(0))):
@@ -33,54 +33,61 @@ def _float_feature(value):
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-def image_example(image_string_low_resolution, image_string_high_resolution, image_shape, _class_id, _sample_id):
+def image_example(image_string_low_resolution, image_string_high_resolution, image_shape_lr, image_shape_hr, _class_id, _sample_id):
     feature = {
-        'height': _int64_feature(image_shape[0]),
-        'width': _int64_feature(image_shape[1]),
-        'depth': _int64_feature(image_shape[2]),
+        'height_lr': _int64_feature(image_shape_lr[0]),
+        'width_lr': _int64_feature(image_shape_lr[1]),
+        'depth_lr': _int64_feature(image_shape_lr[2]),
+        'height_hr': _int64_feature(image_shape_hr[0]),
+        'width_hr': _int64_feature(image_shape_hr[1]),
+        'depth_hr': _int64_feature(image_shape_hr[2]),
         'class_id': _bytes_feature(_class_id),
-        'sample': _bytes_feature(_sample_id),
+        'sample_id': _bytes_feature(_sample_id),
         'image_low_resolution': _bytes_feature(image_string_low_resolution),
         'image_high_resolution': _bytes_feature(image_string_high_resolution),
     }
 
     return tf.train.Example(features=tf.train.Features(feature=feature))
 
+def preprocess_image(image_path):
+    class_id, sample_id = split_path(str(image_path))
+    high_resolution_image = tf.io.read_file(str(image_path))
+    high_resolution_image = tf.image.decode_jpeg(high_resolution_image)
+    low_resolution, image_shape_lr = _reduce_resolution(high_resolution_image)
+    image_shape_hr = tf.shape(high_resolution_image).numpy()
+    return image_example(
+        low_resolution,
+        high_resolution_image,
+        image_shape_hr,
+        image_shape_lr,
+        class_id,
+        sample_id
+    )
+
 timing.start('test')
 data_dir = pathlib.Path('/mnt/hdd_raid/datasets/VGGFace2_Aligned/test')
+data_dir = list(data_dir.glob('*/*.jpg'))
 partial = 1
-total = len(list(data_dir.glob('*/*.jpg')))
-
-with tf.io.TFRecordWriter(
-    '/mnt/hdd_raid/datasets/TFRecords/VGGFace2/Test_Low_Resolution_Raw.tfrecords') as writer:
-    for image in list(data_dir.glob('*/*.jpg')):
+total = len(data_dir)
+PATH = '/mnt/hdd_raid/datasets/TFRecords/VGGFace2/Test_Low_Resolution_Raw.tfrecords'
+with tf.io.TFRecordWriter(PATH) as writer:
+    for image in data_dir:
         LOGGER.info(f' Test Image {partial}/{total}')
-        class_id, sample_id = split_path(str(image))
-        img = tf.io.read_file(str(image))
-        high_resolution = tf.image.decode_jpeg(img)
-        low_resolution = _reduce_resolution(high_resolution)
-        img_shape = tf.shape(high_resolution).numpy()
-        #img_array = tf.keras.preprocessing.image.img_to_array(img, dtype=int)
-        #img_bytes = tf.io.serialize_tensor(img_array)
-        tf_example = image_example(low_resolution, img, img_shape, class_id, sample_id)
+        tf_example = preprocess_image(image)
         writer.write(tf_example.SerializeToString())
         partial += 1
 timing.end('test')
 
 timing.start('train')
 data_dir = pathlib.Path('/mnt/hdd_raid/datasets/VGGFace2_Aligned/train')
+data_dir = list(data_dir.glob('*/*.jpg'))
 partial = 1
-total = len(list(data_dir.glob('*/*.jpg')))
-
-with tf.io.TFRecordWriter('/mnt/hdd_raid/datasets/TFRecords/VGGFace2/Train_Low_Resolution_Raw.tfrecords') as writer:
-    for image in list(data_dir.glob('*/*.jpg')):
+total = len(data_dir)
+PATH = '/mnt/hdd_raid/datasets/TFRecords/VGGFace2/Train_Low_Resolution_Raw.tfrecords'
+with tf.io.TFRecordWriter(PATH) as writer:
+    for image in data_dir:
         LOGGER.info(f' Train Image {partial}/{total}')
-        class_id, sample_id = split_path(str(image))
-        img = tf.io.read_file(str(image))
-        high_resolution = tf.image.decode_jpeg(img)
-        low_resolution = _reduce_resolution(high_resolution)
-        img_shape = tf.shape(high_resolution).numpy()
-        tf_example = image_example(low_resolution, img, img_shape, class_id, sample_id)
+        tf_example = preprocess_image(image)
         writer.write(tf_example.SerializeToString())
         partial += 1
 timing.end('train')

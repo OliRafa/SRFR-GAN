@@ -261,9 +261,18 @@ def _preprocess_pipeline(file_path, destination_folder):
     return _log_results(result)
 
 def _compare_folders(dataset_folder, destination_folder):
+    data_path = dataset_folder
+    dest_path = destination_folder
+
     dataset_folder = set(glob.glob(dataset_folder + '*/*'))
+    dataset_folder = {path.replace(data_path, '') for path in dataset_folder}
     destination_folder = set(glob.glob(destination_folder + '*/*'))
-    return dataset_folder - destination_folder
+    destination_folder = {path.replace(dest_path, '') for path in destination_folder}
+
+    difference = dataset_folder - destination_folder
+    logger.info(f' Number of images: {len(difference)}')
+    difference = {data_path + path for path in difference}
+    return difference
 
 def _dataset_generator(dataset_folder, destination_folder):
     dataset = _compare_folders(dataset_folder, destination_folder)
