@@ -77,7 +77,6 @@ def augment_dataset_without_concatenation(dataset):
     # (image, augmented_image, class_id, sample_id)
     return dataset_zip.map(lambda x, y: (x[0], y[0], x[1], x[2]))
 
-@tf.function
 def split_path(file_path):
     parts = tf.strings.split(file_path, os.path.sep)
 
@@ -139,7 +138,7 @@ def _generate_class_pairs(
                     'concatenated',
                 )
 
-def _get_class_pairs(dataset_name: str) -> Any[Dict[str, int], None]:
+def _get_class_pairs(dataset_name: str):
     try:
         pairs = {}
         with open(f'class_pairs/{dataset_name}.txt', 'r') as class_pairs:
@@ -387,7 +386,7 @@ def load_dataset(
             name='LFW_LR',
             train='/mnt/hdd_raid/datasets/VGGFace2/train/*/*',
             test='/mnt/hdd_raid/datasets/VGGFace2/test/*/*',
-            features = {
+            features={
                 'height': tf.io.FixedLenFeature([], tf.int64),
                 'width': tf.io.FixedLenFeature([], tf.int64),
                 'depth': tf.io.FixedLenFeature([], tf.int64),
@@ -398,8 +397,6 @@ def load_dataset(
             },
         ),
     )
-
-    
 
     dataset = next(filter(lambda x: x.name == dataset_name, dataset_paths))
     if remove_overlaps:
@@ -466,12 +463,3 @@ def load_lfw():
             sample,
         )
     )
-
-#if __name__ == "__main__":
-    ###x = load_datasets()
-    #for a, b, c in x:
-    #    print(a)
-    #    print(b)
-    #    print(c)
-    #load_dataset('VGGFace2')
-    #print(_get_overlapping_identities('VGGFace2'))

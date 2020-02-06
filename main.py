@@ -4,7 +4,7 @@ import logging
 
 import tensorflow as tf
 from tensorflow import keras
-from input_data import augment_dataset, load_dataset, normalize_images
+from utility.input_data import augment_dataset, load_dataset, normalize_images
 from models.resnet import ResNet
 from training.train import train_model, adjust_learning_rate
 from validation.validate import validate_model
@@ -113,12 +113,12 @@ def main():
     LOGGER.info('-------- Starting Training --------')
     checkpoint.restore(manager.latest_checkpoint)
     if manager.latest_checkpoint:
-        LOGGER.info("Restored from {}".format(manager.latest_checkpoint))
+        LOGGER.info(f'Restored from {manager.latest_checkpoint}')
     else:
-        LOGGER.info("Initializing from scratch.")
+        LOGGER.info('Initializing from scratch.')
 
     for epoch in range(1, EPOCHS + 1):
-        LOGGER.info('Start of epoch {}'.format(epoch))
+        LOGGER.info(f'Start of epoch {epoch}')
 
         loss_value = train_model(
             model,
@@ -140,27 +140,18 @@ def main():
             )
 
 
-        LOGGER.info('Epoch {}, Loss: {:.10f}'.format(
-            epoch,
-            float(loss_value)
-        ))
+        LOGGER.info(f'Epoch {epoch}, Loss: {float(loss_value):.10f}')
 
         if epoch % 50 == 0:
             accuracy = validate_model(model)
-            LOGGER.info(
-                'Accuracy on LFW for epoch {}: {}'.format(
-                    epoch,
-                    accuracy
-                )
-            )
+            LOGGER.info(f'Accuracy on LFW for epoch {epoch}: {accuracy}')
 
         checkpoint.step.assign_add(1)
         if int(checkpoint.step) % 20 == 0:
             save_path = manager.save()
-            LOGGER.info("Saved checkpoint for epoch {}: {}".format(
-                int(checkpoint.step),
-                save_path
-            ))
+            LOGGER.info(
+                f'Saved checkpoint for epoch {int(checkpoint.step)}: {save_path}'
+            )
 
         learning_rate.assign(
             adjust_learning_rate(learning_rate.read_value(), epoch)
