@@ -16,15 +16,19 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.info('--- Setting Functions ---')
 
 def _reduce_resolution(high_resolution_image):
-    return tf.image.resize(high_resolution_image, (28, 28), method='bicubic')
+    low_resolution_image = tf.image.resize(high_resolution_image, (28, 28), method='bicubic')
+    low_resolution_image = tf.image.convert_image_dtype(low_resolution_image, tf.uint8)
+    shape = (28, 28, 3)
+    return tf.image.encode_png(low_resolution_image), shape, tf.image.encode_png(high_resolution_image)
 
 def _bytes_feature(value):
     if isinstance(value, type(tf.constant(0))):
         value = value.numpy() # BytesList won't unpack a string from an EagerTensor.
+    try:
+        value = value.encode('utf-8')
+    except Exception:
+        pass
     return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
-def _float_feature(value):
-    return tf.train.Feature(float_list=tf.train.FloatList(value=[value]))
 
 def _int64_feature(value):
     return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
@@ -41,21 +45,28 @@ def image_example(image_string_low_resolution, image_shape, _class_id, _sample_i
 
     return tf.train.Example(features=tf.train.Features(feature=feature))
 
-data_dir = pathlib.Path('/mnt/hdd_raid/datasets/LFW/lfw-deepfunneled/lfw-deepfunneled')
-partial = 1
-total = len(list(data_dir.glob('*/*.jpg')))
+def preprocess_image(image_path):
+    class_id, sample_id = split_path(str(image_path))
+    high_resolution_image = tf.io.read_file(str(image_path))
+    high_resolution_image = tf.image.decode_jpeg(high_resolution_image)
+    low_resolution, image_shape_lr, _ = _reduce_resolution(high_resolution_image)
+    return image_example(
+        low_resolution,
+        image_shape_lr,
+        class_id,
+        sample_id
+    )
 
+data_dir = pathlib.Path('/mnt/hdd_raid/datasets/LFW/lfw-deepfunneled/lfw-deepfunneled')
+data_dir = list(data_dir.glob('*/*.jpg'))
+partial = 1
+total = len(data_dir)
+PATH = '/mnt/hdd_raid/datasets/LFW/Raw_Low_Resolution.tfrecords'
 LOGGER.info(' Started Recording')
 
-with tf.io.TFRecordWriter('/mnt/hdd_raid/datasets/TFRecords/LFW/Raw_Low_Resolution.tfrecords') as writer:
-    for image in list(data_dir.glob('*/*.jpg')):
+with tf.io.TFRecordWriter(PATH) as writer:
+    for image in data_dir:
         LOGGER.info(f' Image {partial}/{total}')
-        class_id, sample_id = split_path(str(image))
-        img = tf.io.read_file(str(image))
-        img = tf.image.decode_jpeg(img)
-        low_resolution = _reduce_resolution(img)
-        img_shape = tf.shape(low_resolution).numpy()
-        low_resolution = tf.io.encode_jpeg(low_resolution)
-        tf_example = image_example(low_resolution, img_shape, class_id, sample_id)
+        tf_example = preprocess_image(image)
         writer.write(tf_example.SerializeToString())
         partial += 1
