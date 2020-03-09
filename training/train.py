@@ -109,11 +109,13 @@ def train_model(
         )
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
         if step % 200 == 0:
-            LOGGER.info('Training loss (for one batch) at step {}: {}'.format(
-                step + 1,
-                float(loss_value)
-            ))
-            LOGGER.info('Seen so far: {} samples'.format((step + 1) * batch_size))
+            LOGGER.info(
+                (
+                    f' Training loss (for one batch) at step {step}:'
+                    f' {float(loss_value):.3f}'
+                )
+            )
+            LOGGER.info(f' Seen so far: {step * batch_size} samples')
     return train_loss_function(loss_value)
 
 def _train_step_synthetic_only(
@@ -176,7 +178,7 @@ def _train_step_synthetic_only(
     srfr_grads = srfr_tape.gradient(srfr_loss, srfr_model.trainable_weights)
     discriminator_grads = discriminator_tape.gradient(
         discriminator_loss,
-        srfr_model.trainable_weights,
+        sr_discriminator_model.trainable_weights,
     )
     return srfr_loss, srfr_grads, discriminator_loss, discriminator_grads
 
@@ -256,7 +258,7 @@ def _train_step_joint_learn(
     srfr_grads = srfr_tape.gradient(srfr_loss, srfr_model.trainable_weights)
     discriminator_grads = discriminator_tape.gradient(
         discriminator_loss,
-        srfr_model.trainable_weights,
+        sr_discriminator_model.trainable_weights,
     )
     return srfr_loss, srfr_grads, discriminator_loss, discriminator_grads
 
@@ -305,16 +307,18 @@ def _train_with_natural_images(
         )
         if step % 200 == 0:
             LOGGER.info(
-                'SRFR Training loss (for one batch) at step {}: {}'.format(
-                    step + 1,
-                    float(srfr_loss)
+                (
+                    f' SRFR Training loss (for one batch) at step {step}:'
+                    f' {float(srfr_loss):.3f}'
                 )
             )
             LOGGER.info(
-                'Discriminator Training loss (for one batch) at step {}: {}'\
-                    .format(step + 1, float(discriminator_loss))
+                (
+                    f' Discriminator loss (for one batch) at step {step}:'
+                    f' {float(discriminator_loss):.3f}'
+                )
             )
-            LOGGER.info('Seen so far: {} samples'.format((step + 1) * batch_size))
+            LOGGER.info(f' Seen so far: {step * batch_size} samples')
     return (
         train_loss_function(srfr_loss),
         train_loss_function(discriminator_loss),
@@ -353,27 +357,26 @@ def _train_with_synthetic_images_only(
             scale,
             margin,
         )
-        LOGGER.debug(7)
         srfr_optimizer.apply_gradients(
             zip(srfr_grads, srfr_model.trainable_weights)
         )
-        LOGGER.debug(8)
         discriminator_optimizer.apply_gradients(
             zip(discriminator_grads, discriminator_model.trainable_weights)
         )
-        LOGGER.debug(9)
         if step % 200 == 0:
             LOGGER.info(
-                ' SRFR Training loss (for one batch) at step {}: {}'.format(
-                    step + 1,
-                    float(srfr_loss)
+                (
+                    f' SRFR Training loss (for one batch) at step {step}:'
+                    f' {float(srfr_loss):.3f}'
                 )
             )
             LOGGER.info(
-                ' Discriminator Training loss (for one batch) at step {}: {}'\
-                    .format(step + 1, float(discriminator_loss))
+                (
+                    f' Discriminator loss (for one batch) at step {step}:'
+                    f' {float(discriminator_loss):.3f}'
+                )
             )
-            LOGGER.info(' Seen so far: {} samples'.format((step + 1) * batch_size))
+            LOGGER.info(f' Seen so far: {step * batch_size} samples')
     return (
         train_loss_function(srfr_loss),
         train_loss_function(discriminator_loss),
