@@ -1,0 +1,33 @@
+---
+# Settings for preprocessing
+# Training script will utilize some of these settings, so doing preprocessing with the provided scripts is recommended
+preprocess:
+  image_shape_high_resolution: [112, 112, 3]
+  image_shape_low_resolution: [28, 28, 3]
+
+# Settings for the network
+network:
+  embedding_size: 512
+  num_filters: 64
+  gc: 32
+  num_blocks: 23
+  residual_scailing: 0.1
+
+# Settings for trainnig
+train:
+  batch_size: 24
+  learning_rate: 0.1
+  momentum: 0.9
+  weight_decay: 5.0e-4
+  iterations: 400_000
+  super_resolution_weight: 0.1
+  scale: 64
+  angular_margin: 0.5
+
+dataset:
+  lfw_lr:
+    path: "/mnt/hdd_raid/datasets/LFW_LR/TFRecords/Raw_Low_Resolution.tfrecords"
+  
+  vggface2_lr:
+    train_path: "/mnt/hdd_raid/datasets/VGGFace2_LR/TFRecords/Train_Low_Resolution_Raw.tfrecords"
+    test_path: "/mnt/hdd_raid/datasets/VGGFace2_LR/TFRecords/Test_Low_Resolution_Raw.tfrecords"

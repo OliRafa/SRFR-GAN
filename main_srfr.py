@@ -22,33 +22,17 @@ from validation.validate import validate_model_on_lfw
 
 logging.basicConfig(
     filename='train_srfr_logs.txt',
-    level=logging.INFO
+    level=logging.DEBUG
 )
 LOGGER = logging.getLogger(__name__)
 AUTOTUNE = tf.data.experimental.AUTOTUNE
-NETWORK_SETTINGS = {
-    'embedding_size': 512,
-    'num_filters': 62,
-    'gc': 32,
-    'num_blocks': 23,
-    'residual_scailing': 0.1,
-}
-
-TRAIN_SETTINGS = {
-    'batch_size': 64,
-    'learning_rate': 0.1,
-    'momentum': 0.9,
-    'weight_decay': 5e-4,
-    'iterations': 400_000,
-    'sr_weight': 0.1,
-    'scale': 64,
-    'angular_margin': 0.5,
-}
 
 def main():
     """Main training function."""
     timing = TimingLogger()
     timing.start()
+    network_settings, train_settings, preprocess_settings = parseConfigsFile(
+        ['network', 'train', 'preprocess'])
     LOGGER.info(' -------- Importing Datasets --------')
     vgg_dataset = VggFace2(mode='concatenated')
     synthetic_dataset = vgg_dataset.get_dataset()
@@ -74,35 +58,36 @@ def main():
     LOGGER.info(' -------- Creating Models and Optimizers --------')
 
     EPOCHS = generate_num_epochs(
-        TRAIN_SETTINGS['iterations'],
+        train_settings['iterations'],
         synthetic_num_classes,
-        TRAIN_SETTINGS['batch_size']
+        train_settings['batch_size']
     )
 
     srfr_model = SRFR(
-        num_filters=NETWORK_SETTINGS['num_filters'],
+        num_filters=network_settings['num_filters'],
         depth=50,
-        categories=NETWORK_SETTINGS['embedding_size'],
-        num_gc=NETWORK_SETTINGS['gc'],
-        num_blocks=NETWORK_SETTINGS['num_blocks'],
-        residual_scailing=NETWORK_SETTINGS['residual_scailing'],
+        categories=network_settings['embedding_size'],
+        num_gc=network_settings['gc'],
+        num_blocks=network_settings['num_blocks'],
+        residual_scailing=network_settings['residual_scailing'],
         training=True,
+        input_shape=preprocess_settings['image_shape_low_resolution'],
     )
     sr_discriminator_model = DiscriminatorNetwork()
 
     learning_rate = tf.Variable(
-        TRAIN_SETTINGS['learning_rate'],
+        train_settings['learning_rate'],
         trainable=False,
         dtype=tf.float32,
         name='learning_rate'
     )
     srfr_optimizer = keras.optimizers.SGD(
         learning_rate=learning_rate,
-        momentum=TRAIN_SETTINGS['momentum']
+        momentum=train_settings['momentum']
     )
     discriminator_optimizer = keras.optimizers.SGD(
         learning_rate=learning_rate,
-        momentum=TRAIN_SETTINGS['momentum']
+        momentum=train_settings['momentum']
     )
 
     checkpoint = tf.train.Checkpoint(
@@ -129,6 +114,8 @@ def main():
     )
 
     LOGGER.info(' -------- Starting Training --------')
+    LOGGER.debug(type(manager.latest_checkpoint))
+    LOGGER.debug(manager.latest_checkpoint)
     checkpoint.restore(manager.latest_checkpoint)
     if manager.latest_checkpoint:
         LOGGER.info(f' Restored from {manager.latest_checkpoint}')
@@ -136,13 +123,13 @@ def main():
         LOGGER.info(' Initializing from scratch.')
 
     for epoch in range(1, EPOCHS + 1):
+        timing.start(train_srfr_model.__name__)
         LOGGER.info(f' Start of epoch {epoch}')
 
-        timing.start(train_srfr_model.__name__)
         srfr_loss, discriminator_loss = train_srfr_model(
             srfr_model,
             sr_discriminator_model,
-            TRAIN_SETTINGS['batch_size'],
+            train_settings['batch_size'],
             srfr_optimizer,
             discriminator_optimizer,
             train_loss,
@@ -150,9 +137,9 @@ def main():
             synthetic_num_classes,
             # natural_ds,
             # num_classes_natural,
-            TRAIN_SETTINGS['sr_weight'],
-            TRAIN_SETTINGS['scale'],
-            TRAIN_SETTINGS['angular_margin'],
+            sr_weight=train_settings['super_resolution_weight'],
+            scale=train_settings['scale'],
+            margin=train_settings['angular_margin'],
         )
         elapsed_time = timing.end(train_srfr_model.__name__, True)
         with train_summary_writer.as_default():
@@ -208,8 +195,8 @@ def main():
         learning_rate.assign(
             adjust_learning_rate(learning_rate.read_value(), epoch)
         )
-    timing.calculate_mean(train_srfr_model.__name__)
-    timing.calculate_mean(validate_model_on_lfw.__name__)
+    #timing.calculate_mean(train_srfr_model.__name__)
+    #timing.calculate_mean(validate_model_on_lfw.__name__)
 
 if __name__ == "__main__":
     main()
