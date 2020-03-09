@@ -655,6 +655,11 @@ def parseConfigsFile(
 def load_json(path):
     with Path(path).open('r') as json_file:
         return json.load(json_file)
+
+def load_resnet_config() -> List[Dict]:
+    path = Path().cwd().joinpath('models', 'resnet_config.txt')
+    configs = load_json(path)
+    return configs['network_config'], configs['layer_config']
 #def resolvendo_pau():
 #    overlaps = InputData()._get_overlapping_identities('VGGFace2')
 #    train_list = Path('/mnt/hdd_raid/datasets/VGGFace2_LR/Images/train')

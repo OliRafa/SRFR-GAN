@@ -13,6 +13,7 @@ from tensorflow.keras.layers import (
     ZeroPadding2D
 )
 
+from utils.input_data import load_resnet_config
 
 #class ConvBlock(Model):
 #    def __init__(self):
@@ -112,18 +113,6 @@ class Bottleneck(Model):
         return ReLU()(output)
 
 
-RESNET_CONFIG = {
-    50: [3, 4, 6, 3],
-    101: [3, 4, 23, 3],
-    152: [3, 8, 36, 3]
-}
-LAYER_CONFIG = {
-    'conv_2': [64, 64, 256],
-    'conv_3': [128, 128, 512],
-    'conv_4': [256, 256, 1024],
-    'conv_5': [512, 512, 2048]
-}
-
 class ResNet(Model):
     """Base Class for the ResNet model.
     Currently only working for the 50, 101 and 152 models, with Bottleneck.
@@ -137,8 +126,7 @@ class ResNet(Model):
     """
     def __init__(self, depth=50, categories=512, trainable=False):
         super(ResNet, self).__init__()
-        global RESNET_CONFIG, LAYER_CONFIG
-
+        network_configs, layer_configs = load_resnet_config()
         self._trainable = trainable
 
         self._input = Conv2D(
@@ -155,7 +143,7 @@ class ResNet(Model):
             self._conv3,
             self._conv4,
             self._conv5
-        ) = self._generate_layers(RESNET_CONFIG[depth], LAYER_CONFIG)
+        ) = self._generate_layers(network_configs[str(depth)], layer_configs)
         #self._avg_pool = AveragePooling2D((1, 1), name='avg_pooling')
         self._flatten = Flatten(name='flatten')
         self._bn = BatchNormalization(
@@ -215,4 +203,7 @@ class ResNet(Model):
         return output
 
     def get_weights(self):
+        """Get weights from the Batch Normalization after the last Fully\
+ Connected layer.
+        """
         return self._bn2.get_weights()[0]
