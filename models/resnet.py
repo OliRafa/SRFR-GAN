@@ -13,6 +13,7 @@ from tensorflow.keras.layers import (
     ZeroPadding2D
 )
 
+
 #class ConvBlock(Model):
 #    def __init__(self):
 #        super(ConvBlock, self).__init__()
@@ -57,16 +58,19 @@ class Bottleneck(Model):
     """
     def __init__(self, filters, stride, first_conv_layer=False, trainable=False):
         super(Bottleneck, self).__init__()
+        self._trainable = trainable
         if first_conv_layer:
-            self._sc_layer = True
             self._sc_filter = filters[2]
             self._sc_stride = stride
             self._padding = 'same'
+            self._sc_layer = Shortcut(
+                self._sc_filter,
+                self._sc_stride,
+                self._trainable,
+            )
         else:
             self._sc_layer = False
             self._padding = 'valid'
-
-        self._trainable = trainable
 
         self._conv1 = Conv2D(
             filters=filters[0],
@@ -92,11 +96,7 @@ class Bottleneck(Model):
 
     def call(self, input_tensor):
         if self._sc_layer:
-            residual = Shortcut(
-                self._sc_filter,
-                self._sc_stride,
-                self._trainable
-            )(input_tensor)
+            residual = self._sc_layer(input_tensor)
         else:
             residual = input_tensor
 
@@ -155,10 +155,7 @@ class ResNet(Model):
             self._conv3,
             self._conv4,
             self._conv5
-        ) = self._generate_layers(
-                RESNET_CONFIG[depth],
-                LAYER_CONFIG
-            )
+        ) = self._generate_layers(RESNET_CONFIG[depth], LAYER_CONFIG)
         #self._avg_pool = AveragePooling2D((1, 1), name='avg_pooling')
         self._flatten = Flatten(name='flatten')
         self._bn = BatchNormalization(
@@ -215,4 +212,7 @@ class ResNet(Model):
         output = self._flatten(output)
         output = self._fully_connected(output)
         output = self._bn2(output)
-        return output, self._bn2.get_weights()
+        return output
+
+    def get_weights(self):
+        return self._bn2.get_weights()[0]
