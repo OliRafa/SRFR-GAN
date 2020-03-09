@@ -3,27 +3,11 @@ import tensorflow as tf
 from scipy import interpolate
 from scipy.optimize import brentq
 from sklearn import metrics
-from utility.input_data import split_path
+
 from training.losses import normalize
 from validation.lfw_helper import evaluate
 
-# Talvez no split_path dentro do _load_pairs tenha que retirar o @tf.function
-def load_lfw_pairs():
-    """Loads the Labeled Faces in the Wild pairs from the file.
-    Output array has only the sample_id, not giving the full path or class_id.
-
-    ### Returns
-        Numpy Array of the pairs, with shape [id_01, id_2, is_same].
-    """
-    pairs = []
-    with open('pairs_label.txt', 'r') as pairs_file:
-        for line in pairs_file.readlines()[1:]:
-            pair = line.strip().split()
-            _, id_01 = split_path(pair[0])
-            _, id_02 = split_path(pair[1])
-            pairs.append([id_01, id_02, pair[2]])
-    return np.array(pairs)
-
+# Talvez no InputData.split_path dentro do _load_pairs tenha que retirar o @tf.function
 @tf.function
 def _get_single_embedding(model, dataset):
     image, augmented_image = dataset.map(lambda a, b, c, d: (a, b))
@@ -37,8 +21,8 @@ def _get_embeddings(model, dataset, pairs):
     embeddings = []
     is_same_list = []
     for id_01, id_02, is_same in pairs:
-        id_01_dataset = dataset.filter(lambda x: tf.equal(x[3], id_01))
-        id_02_dataset = dataset.filter(lambda x: tf.equal(x[3], id_02))
+        id_01_dataset = dataset.filter(lambda x: tf.equal(x[2], id_01))
+        id_02_dataset = dataset.filter(lambda x: tf.equal(x[2], id_02))
 
         embeddings.append(_get_single_embedding(model, id_01_dataset))
         embeddings.append(_get_single_embedding(model, id_02_dataset))

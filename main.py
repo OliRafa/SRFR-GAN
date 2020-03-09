@@ -4,7 +4,7 @@ import logging
 
 import tensorflow as tf
 from tensorflow import keras
-from utility.input_data import augment_dataset, load_dataset, normalize_images
+from utils.input_data import augment_dataset, load_dataset, normalize_images
 from models.resnet import ResNet
 from training.train import train_model, adjust_learning_rate
 from validation.validate import validate_model

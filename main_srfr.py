@@ -6,6 +6,7 @@ import logging
 
 import tensorflow as tf
 from tensorflow import keras
+
 from models.discriminator import DiscriminatorNetwork
 from models.srfr import SRFR
 from training.train import (
@@ -13,17 +14,11 @@ from training.train import (
     generate_num_epochs,
     train_srfr_model,
 )
-from utility.input_data import (
-    augment_dataset,
-    load_dataset,
-    load_lfw,
-    normalize_images,
-)
-from utility.timing import TimingLogger
-from validation.validate import load_lfw_pairs, validate_model_on_lfw
+from utils.input_data import LFW, parseConfigsFile, VggFace2
+from utils.timing import TimingLogger
+from validation.validate import validate_model_on_lfw
 
 # Importar Natural DS.
-# Mudar o VGG no synthetic_dataset para o dataset correto
 
 logging.basicConfig(
     filename='train_srfr_logs.txt',
@@ -55,28 +50,26 @@ def main():
     timing = TimingLogger()
     timing.start()
     LOGGER.info(' -------- Importing Datasets --------')
-    (
-        synthetic_dataset,
-        synthetic_num_classes,
-        synthetic_dataset_len,
-    ) = load_dataset('VGGFace2', concatenate=True)
-    synthetic_dataset = synthetic_dataset.map(augment_dataset)
-    synthetic_dataset = synthetic_dataset.map(
-        lambda image, class_id: (normalize_images(image), class_id)
-    )
+    vgg_dataset = VggFace2(mode='concatenated')
+    synthetic_dataset = vgg_dataset.get_dataset()
+    synthetic_dataset = vgg_dataset.augment_dataset()
+    synthetic_dataset = vgg_dataset.normalize_dataset()
+    synthetic_dataset_len = vgg_dataset.get_dataset_size()
+    synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_dataset = synthetic_dataset.shuffle(
-        buffer_size=2 * synthetic_dataset_len
-    ).batch(TRAIN_SETTINGS['batch_size']).prefetch(buffer_size=AUTOTUNE)
+        buffer_size=1024
+    ).batch(train_settings['batch_size']).prefetch(buffer_size=AUTOTUNE)
 
-    test_dataset = load_lfw()
-    lfw_pairs = load_lfw_pairs()
+    lfw_dataset = LFW()
+    test_dataset = lfw_dataset.get_dataset()
+    lfw_pairs = lfw_dataset.load_lfw_pairs()
 
-    distributed_strategy = tf.distribute.MirroredStrategy()
+    #distributed_strategy = tf.distribute.MirroredStrategy()
 
-    distributed_synthetic_dataset = distributed_strategy\
-        .experimental_distribute_dataset(synthetic_dataset)
-    distributed_test_dataset = distributed_strategy\
-        .experimental_distribute_dataset(test_dataset)
+    #distributed_synthetic_dataset = distributed_strategy\
+    #    .experimental_distribute_dataset(synthetic_dataset)
+    #distributed_test_dataset = distributed_strategy\
+    #    .experimental_distribute_dataset(test_dataset)
 
     LOGGER.info(' -------- Creating Models and Optimizers --------')
 
@@ -153,7 +146,7 @@ def main():
             srfr_optimizer,
             discriminator_optimizer,
             train_loss,
-            distributed_synthetic_dataset,
+            synthetic_dataset,
             synthetic_num_classes,
             # natural_ds,
             # num_classes_natural,
