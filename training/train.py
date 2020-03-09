@@ -1,17 +1,25 @@
 """This module contains functions used for training."""
+import logging
+
 import tensorflow as tf
 from training.losses import (
+    create_vgg_model,
     compute_arcloss,
     compute_discriminator_loss,
     compute_joint_loss,
 )
 
+LOGGER = logging.getLogger(__name__)
+
 # Terminar a parte do Discriminator nas duas funções.
 
-@tf.function
 def generate_num_epochs(iterations, len_dataset, batch_size):
+    LOGGER.info(f' Generating number of epochs for {iterations} iterations,\
+ {len_dataset} dataset length and {batch_size} batch size.')
     train_size = tf.math.ceil(len_dataset / batch_size)
-    return tf.cast(tf.math.ceil(iterations / train_size), dtype=tf.int32)
+    epochs = tf.cast(tf.math.ceil(iterations / train_size), dtype=tf.int32)
+    LOGGER.info(f' Number of epochs: {epochs}.')
+    return epochs
 
 @tf.function
 def adjust_learning_rate(current_learning_rate: float, epoch: int = 1) -> float:
@@ -101,15 +109,15 @@ def train_model(
         )
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
         if step % 200 == 0:
-            print('Training loss (for one batch) at step {}: {}'.format(
+            LOGGER.info('Training loss (for one batch) at step {}: {}'.format(
                 step + 1,
                 float(loss_value)
             ))
-            print('Seen so far: {} samples'.format((step + 1) * batch_size))
+            LOGGER.info('Seen so far: {} samples'.format((step + 1) * batch_size))
     return train_loss_function(loss_value)
 
-@tf.function
 def _train_step_synthetic_only(
+        vgg,
         srfr_model,
         sr_discriminator_model,
         low_resolution_batch,
@@ -140,8 +148,8 @@ def _train_step_synthetic_only(
         (
             super_resolution_images,
             embeddings,
-            fc_weights,
         ) = srfr_model(low_resolution_batch)
+        fc_weights = srfr_model.get_weights()
         discriminator_sr_predictions = sr_discriminator_model(super_resolution_images)
         discriminator_gt_predictions = sr_discriminator_model(groud_truth_batch)
         synthetic_face_recognition = (
@@ -151,6 +159,7 @@ def _train_step_synthetic_only(
             num_classes,
         )
         srfr_loss = compute_joint_loss(
+            vgg,
             super_resolution_images,
             groud_truth_batch,
             discriminator_sr_predictions,
@@ -173,6 +182,7 @@ def _train_step_synthetic_only(
 
 @tf.function
 def _train_step_joint_learn(
+        vgg,
         srfr_model,
         sr_discriminator_model,
         natural_batch,
@@ -228,6 +238,7 @@ def _train_step_joint_learn(
             num_classes_natural,
         )
         srfr_loss = compute_joint_loss(
+            vgg,
             synthetic_images,
             groud_truth_images,
             discriminator_sr_predictions,
@@ -251,6 +262,7 @@ def _train_step_joint_learn(
 
 @tf.function
 def _train_with_natural_images(
+        vgg,
         srfr_model,
         discriminator_model,
         batch_size,
@@ -274,6 +286,7 @@ def _train_with_natural_images(
             discriminator_loss,
             discriminator_grads,
         ) = _train_step_joint_learn(
+            vgg,
             srfr_model,
             discriminator_model,
             natural_batch,
@@ -291,24 +304,25 @@ def _train_with_natural_images(
             zip(discriminator_grads, discriminator_model.trainable_weights)
         )
         if step % 200 == 0:
-            print(
+            LOGGER.info(
                 'SRFR Training loss (for one batch) at step {}: {}'.format(
                     step + 1,
                     float(srfr_loss)
                 )
             )
-            print(
+            LOGGER.info(
                 'Discriminator Training loss (for one batch) at step {}: {}'\
                     .format(step + 1, float(discriminator_loss))
             )
-            print('Seen so far: {} samples'.format((step + 1) * batch_size))
+            LOGGER.info('Seen so far: {} samples'.format((step + 1) * batch_size))
     return (
         train_loss_function(srfr_loss),
         train_loss_function(discriminator_loss),
     )
 
-@tf.function
+#@tf.function
 def _train_with_synthetic_images_only(
+        vgg,
         srfr_model,
         discriminator_model,
         batch_size,
@@ -321,14 +335,14 @@ def _train_with_synthetic_images_only(
         scale: float = 64,
         margin: float = 0.5,
     ) -> float:
-    for step, (synthetic_images, groud_truth_images, synthetic_classes) in \
-        enumerate(dataset):
+    for step, (synthetic_images, groud_truth_images, synthetic_classes) in enumerate(dataset):
         (
             srfr_loss,
             srfr_grads,
             discriminator_loss,
             discriminator_grads,
         ) = _train_step_synthetic_only(
+            vgg,
             srfr_model,
             discriminator_model,
             synthetic_images,
@@ -339,30 +353,33 @@ def _train_with_synthetic_images_only(
             scale,
             margin,
         )
+        LOGGER.debug(7)
         srfr_optimizer.apply_gradients(
             zip(srfr_grads, srfr_model.trainable_weights)
         )
+        LOGGER.debug(8)
         discriminator_optimizer.apply_gradients(
             zip(discriminator_grads, discriminator_model.trainable_weights)
         )
+        LOGGER.debug(9)
         if step % 200 == 0:
-            print(
-                'SRFR Training loss (for one batch) at step {}: {}'.format(
+            LOGGER.info(
+                ' SRFR Training loss (for one batch) at step {}: {}'.format(
                     step + 1,
                     float(srfr_loss)
                 )
             )
-            print(
-                'Discriminator Training loss (for one batch) at step {}: {}'\
+            LOGGER.info(
+                ' Discriminator Training loss (for one batch) at step {}: {}'\
                     .format(step + 1, float(discriminator_loss))
             )
-            print('Seen so far: {} samples'.format((step + 1) * batch_size))
+            LOGGER.info(' Seen so far: {} samples'.format((step + 1) * batch_size))
     return (
         train_loss_function(srfr_loss),
         train_loss_function(discriminator_loss),
     )
 
-@tf.function
+#@tf.function
 def train_srfr_model(
         srfr_model,
         discriminator_model,
@@ -400,8 +417,10 @@ def train_srfr_model(
         (srfr_loss, discriminator_loss) The loss value for SRFR and\
  Discriminator networks.
     """
+    vgg = create_vgg_model()
     if natural_dataset:
         return _train_with_natural_images(
+            vgg,
             srfr_model,
             discriminator_model,
             batch_size,
@@ -418,6 +437,7 @@ def train_srfr_model(
         )
 
     return _train_with_synthetic_images_only(
+        vgg,
         srfr_model,
         discriminator_model,
         batch_size,
