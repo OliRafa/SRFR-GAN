@@ -64,6 +64,7 @@ class TimingLogger():
                 'times': [],
                 'count': 0,
             }
+        print(function_name)
         self._mean_times[function_name]['times'].append(timing)
         self._mean_times[function_name]['count'] += 1
 

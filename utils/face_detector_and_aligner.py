@@ -303,8 +303,8 @@ def detect_and_align_faces(dataset_folder, destination_folder):
             executor.map(_preprocess, batch)
 
 if __name__ == '__main__':
-    DATASET_FOLDER = '/mnt/hdd_raid/datasets/VGGFace2/train/'
-    DESTINATION_FOLDER = '/mnt/hdd_raid/datasets/VGGFace2_Aligned/train/'
+    DATASET_FOLDER = '/mnt/hdd_raid/datasets/VGGFace2/test/'
+    DESTINATION_FOLDER = '/mnt/hdd_raid/datasets/VGGFace2_LR/Images/test/'
     #DATASET_FOLDER = '/mnt/hdd_raid/datasets/TESTE/t1/'
     #DESTINATION_FOLDER = '/mnt/hdd_raid/datasets/TESTE/t2/'
 
