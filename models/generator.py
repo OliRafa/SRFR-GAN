@@ -29,6 +29,7 @@ class ResidualDenseBlock(Model):
             strides=(1, 1),
             padding='same',
             activation=LeakyReLU(alpha=0.2),
+            kernel_initializer='he_uniform',
         )
         self._conv2 = Conv2D(
             filters=gc,
@@ -36,6 +37,7 @@ class ResidualDenseBlock(Model):
             strides=(1, 1),
             padding='same',
             activation=LeakyReLU(alpha=0.2),
+            kernel_initializer='he_uniform',
         )
         self._conv3 = Conv2D(
             filters=gc,
@@ -43,6 +45,7 @@ class ResidualDenseBlock(Model):
             strides=(1, 1),
             padding='same',
             activation=LeakyReLU(alpha=0.2),
+            kernel_initializer='he_uniform',
         )
         self._conv4 = Conv2D(
             filters=gc,
@@ -50,25 +53,27 @@ class ResidualDenseBlock(Model):
             strides=(1, 1),
             padding='same',
             activation=LeakyReLU(alpha=0.2),
+            kernel_initializer='he_uniform',
         )
         self._conv5 = Conv2D(
             filters=filters,
             kernel_size=(3, 3),
             strides=(1, 1),
             padding='same',
+            kernel_initializer='he_uniform',
         )
 
     def call(self, input_tensor):
         output1 = self._conv1(input_tensor)
-        output2 = self._conv2(tf.concat([input_tensor, output1], 1))
-        output3 = self._conv3(tf.concat([input_tensor, output1, output2], 1))
+        output2 = self._conv2(tf.concat([input_tensor, output1], -1))
+        output3 = self._conv3(tf.concat([input_tensor, output1, output2], -1))
         output4 = self._conv4(tf.concat(
             [input_tensor, output1, output2, output3],
-            1,
+            -1,
         ))
         output5 = self._conv5(tf.concat(
             [input_tensor, output1, output2, output3, output4],
-            1,
+            -1,
         ))
         return output5 * self._residual_scailing + input_tensor
 
@@ -128,6 +133,7 @@ class GeneratorNetwork(Model):
             strides=1,
             padding='same',
             name='conv_after_rrdb_block',
+            kernel_initializer='he_uniform',
         )
         self._upsampling_1 = UpSampling2D(size=(2, 2), interpolation='nearest')
         self._upsampling_conv_1 = Conv2D(
@@ -137,6 +143,7 @@ class GeneratorNetwork(Model):
             padding='same',
             name='conv_upsampling_1',
             activation=LeakyReLU(alpha=0.2),
+            kernel_initializer='he_uniform',
         )
         self._upsampling_2 = UpSampling2D(size=(2, 2), interpolation='nearest')
         self._upsampling_conv_2 = Conv2D(
@@ -146,6 +153,7 @@ class GeneratorNetwork(Model):
             padding='same',
             name='conv_upsampling_2',
             activation=LeakyReLU(alpha=0.2),
+            kernel_initializer='he_uniform',
         )
         self._high_resolution_conv = Conv2D(
             filters=num_filters,
@@ -154,6 +162,7 @@ class GeneratorNetwork(Model):
             padding='same',
             name='conv_high_resolution',
             activation=LeakyReLU(alpha=0.2),
+            kernel_initializer='he_uniform',
         )
         self._last_conv = Conv2D(
             filters=3,
@@ -161,6 +170,7 @@ class GeneratorNetwork(Model):
             strides=1,
             padding='same',
             name='conv_last',
+            kernel_initializer='he_uniform',
         )
 
     def _generate_layers(
