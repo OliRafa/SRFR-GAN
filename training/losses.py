@@ -6,31 +6,38 @@ Losses:
     - Generator Loss
     - Joint Loss
 """
+import logging
+
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.applications import VGG19
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.losses import (
     BinaryCrossentropy,
+    CategoricalCrossentropy,
     MAE,
+    MeanAbsoluteError,
     MSE,
+    MeanSquaredError,
     SparseCategoricalCrossentropy
 )
+
+LOGGER = logging.getLogger(__name__)
 
 # Checar diferença entre MeanSquaredError para MSE
 # O mesmo para MeanAbsoluteError e MAE
 
 @tf.function
-def normalize(logits, name: str = None):
-    return tf.norm(logits, ord='euclidean', axis=1, name=name)
+def normalize(logits, axis: int = None, name: str = None):
+    return tf.linalg.normalize(logits, ord='euclidean', axis=axis, name=name)[0]
 
 @tf.function
 def _compute_l1_loss(fake_outputs, ground_truth, weigth: float = 1e-2):
-    return weigth * MAE(ground_truth, fake_outputs)
+    return weigth * MeanAbsoluteError()(ground_truth, fake_outputs)
 
 @tf.function
 def _compute_euclidean_distance(fake_outputs, ground_truth) -> float:
-    return MSE(ground_truth, fake_outputs)
+    return MeanSquaredError()(ground_truth, fake_outputs)
 
 @tf.function
 def _compute_categorical_crossentropy(logits, labels) -> float:
@@ -41,12 +48,9 @@ def _compute_categorical_crossentropy(logits, labels) -> float:
         labels: the labels
 
     ### Returns:
-        the computed loss.
+        Computed loss.
     """
-    return SparseCategoricalCrossentropy()(
-        logits,
-        labels,
-    )
+    return CategoricalCrossentropy()(logits, labels)
 
 @tf.function
 def _compute_binary_crossentropy(y_true, y_predicted) -> float:
@@ -66,9 +70,9 @@ def _compute_binary_crossentropy(y_true, y_predicted) -> float:
 
 @tf.function
 def _apply_softmax(logits):
-    return keras.activations.Softmax(logits, name='softmax')
+    return keras.activations.softmax(logits)
 
-@tf.function
+#@tf.function
 def compute_arcloss(
         embeddings,
         ground_truth,
@@ -90,16 +94,18 @@ def compute_arcloss(
 
     ### Returns
         The loss value."""
-    normalized_weights = normalize(fc_weights, 'weights_normalization')
+    normalized_weights = normalize(fc_weights, name='weights_normalization')
     normalized_embeddings = normalize(
-        embeddings, 'embeddings_normalization') * scale
+        embeddings, axis=1, name='embeddings_normalization') * scale
 
     dense_layer = Dense(
+        input_shape=(512,),
         units=num_classes,
         use_bias=False,
         name='fully_connected_to_softmax_crossentropy',
     )
-    dense_layer.set_weights(normalized_weights)
+    dense_layer.add_weight(shape=(512,))
+    dense_layer.set_weights((normalized_weights,))
     original_target_embeddings = dense_layer(normalized_embeddings)
 
     cos_theta = original_target_embeddings / scale
@@ -137,30 +143,33 @@ def compute_discriminator_loss(
     )
     return (gt_relativistic_average + sr_relativistic_average) / 2
 
-@tf.function
-def _create_vgg_model():
+def create_vgg_model():
     vgg = VGG19(include_top=False, weights='imagenet')
     vgg.trainable = False
 
     # Removing the activation function from the last conv layer 'block5_conv4'
     vgg.layers[-2].activation = None
 
+    vgg_output = vgg.input
+    for layer in vgg.layers[1:-1]:
+        vgg_output = layer(vgg_output)
+
     # Creating the model with layers [input...last_conv_layer]
     # I.e. removing the last MaxPooling layer from the model
     return keras.Model(
         inputs=vgg.input,
-        outputs=[layer.output for layer in vgg.layers[:-1]],
+        outputs=vgg_output,
     )
 
-@tf.function
+#@tf.function
 def _compute_perceptual_loss(
+        vgg,
         super_resolution,
         ground_truth,
         weight: float = 1.0,
     ) -> float:
-    vgg = _create_vgg_model()
-    fake = vgg(super_resolution)
-    real = vgg(ground_truth)
+    fake = vgg.predict(super_resolution)
+    real = vgg.predict(ground_truth)
     return weight * _compute_euclidean_distance(fake, real)
 
 @tf.function
@@ -184,20 +193,23 @@ def _generator_loss(
     )
     return (gt_relativistic_average + sr_relativistic_average) / 2
 
-@tf.function
+#@tf.function
 def _compute_generator_loss(
+        vgg,
         super_resolution,
         ground_truth,
         discriminator_sr_predictions,
         discriminator_gt_predictions,
     ) -> float:
-    perceptual_loss = _compute_perceptual_loss(super_resolution, ground_truth)
+    perceptual_loss = _compute_perceptual_loss(vgg, super_resolution, ground_truth)
     generator_loss = _generator_loss(discriminator_sr_predictions, discriminator_gt_predictions)
     l1_loss = _compute_l1_loss(super_resolution, ground_truth)
+
     return perceptual_loss + generator_loss + l1_loss
 
-@tf.function
+#@tf.function
 def compute_joint_loss_simple(
+        vgg,
         super_resolution,
         embedding,
         ground_truth,
@@ -210,6 +222,7 @@ def compute_joint_loss_simple(
         margin: float = 0.5,
     ) -> float:
     super_resolution_loss = _compute_generator_loss(
+        vgg,
         super_resolution,
         ground_truth,
         discriminator_sr_predictions,
@@ -225,8 +238,8 @@ def compute_joint_loss_simple(
         )
     return face_recognition_loss + weight * super_resolution_loss
 
-@tf.function
 def compute_joint_loss(
+        vgg,
         super_resolution_images,
         ground_truth_images,
         discriminator_sr_predictions,
@@ -256,6 +269,7 @@ classes, fc_weights, num_classes) from the Natural SRFR.
         The loss value.
     """
     super_resolution_loss = _compute_generator_loss(
+        vgg,
         super_resolution_images,
         ground_truth_images,
         discriminator_sr_predictions,
