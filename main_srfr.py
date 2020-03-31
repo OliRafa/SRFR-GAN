@@ -3,6 +3,7 @@
 """
 import datetime
 import logging
+import sys
 
 import tensorflow as tf
 from tensorflow import keras
@@ -22,7 +23,7 @@ from validation.validate import validate_model_on_lfw
 
 logging.basicConfig(
     filename='train_srfr_logs.txt',
-    level=logging.DEBUG
+    level=logging.DEBUG,
 )
 LOGGER = logging.getLogger(__name__)
 AUTOTUNE = tf.data.experimental.AUTOTUNE
@@ -114,15 +115,13 @@ def main():
     )
 
     LOGGER.info(' -------- Starting Training --------')
-    LOGGER.debug(type(manager.latest_checkpoint))
-    LOGGER.debug(manager.latest_checkpoint)
     checkpoint.restore(manager.latest_checkpoint)
     if manager.latest_checkpoint:
         LOGGER.info(f' Restored from {manager.latest_checkpoint}')
     else:
         LOGGER.info(' Initializing from scratch.')
 
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(int(checkpoint.step), EPOCHS + 1):
         timing.start(train_srfr_model.__name__)
         LOGGER.info(f' Start of epoch {epoch}')
 
@@ -140,6 +139,7 @@ def main():
             sr_weight=train_settings['super_resolution_weight'],
             scale=train_settings['scale'],
             margin=train_settings['angular_margin'],
+            summary_writer=train_summary_writer,
         )
         elapsed_time = timing.end(train_srfr_model.__name__, True)
         with train_summary_writer.as_default():
@@ -155,10 +155,10 @@ def main():
                 step=epoch
             )
             tf.summary.scalar('training_time', elapsed_time, step=epoch)
-        LOGGER.info(f' Epoch {epoch}, SRFR Loss: {srfr_loss:2.5f}, Discriminator\
-             Loss: {discriminator_loss:2.5f}')
+        LOGGER.info((f' Epoch {epoch}, SRFR Loss: {srfr_loss:.3f},'
+                     f' Discriminator Loss: {discriminator_loss:.3f}'))
 
-        if epoch % 100 == 0:
+        if epoch % 2 == 0:
             timing.start(validate_model_on_lfw.__name__)
             (accuracy_mean, accuracy_std, validation_rate, validation_std, \
                 far, auc, eer) = validate_model_on_lfw(
@@ -178,25 +178,26 @@ def main():
                 tf.summary.scalar('testing_time', elapsed_time, step=epoch)
 
             LOGGER.info((
-                f' Validation on LFW: Epoch {epoch} - '
-                f'Accuracy: {accuracy_mean:2.5f} +- {accuracy_std:2.5f} - '
-                f'Validation Rate: {validation_rate:2.5f} +- \
-                    {validation_std:2.5f} @ FAR {far:2.5f} - '
-                f'Area Under Curve (AUC): {auc:1.3f} - '
-                f'Equal Error Rate (EER): {eer:1.3f} - '
+                f' Validation on LFW: Epoch {epoch} -'
+                f' Accuracy: {accuracy_mean:.3f} +- {accuracy_std:.3f} -'
+                f' Validation Rate: {validation_rate:.3f} +-'
+                f' {validation_std:.3f} @ FAR {far:.3f} -'
+                f' Area Under Curve (AUC): {auc:.3f} -'
+                f' Equal Error Rate (EER): {eer:.3f} -'
             ))
 
-        checkpoint.step.assign_add(1)
-        if int(checkpoint.step) % 20 == 0:
-            save_path = manager.save()
-            LOGGER.info(f' Saved checkpoint for epoch {int(checkpoint.step)}: \
-                {save_path}')
+        save_path = manager.save()
+        LOGGER.info((f' Saved checkpoint for epoch {int(checkpoint.step)}:'
+                     f' {save_path}'))
 
         learning_rate.assign(
-            adjust_learning_rate(learning_rate.read_value(), epoch)
+            adjust_learning_rate(
+                learning_rate.read_value(),
+                int(checkpoint.step),
+            )
         )
-    #timing.calculate_mean(train_srfr_model.__name__)
-    #timing.calculate_mean(validate_model_on_lfw.__name__)
+        checkpoint.step.assign_add(1)
+
 
 if __name__ == "__main__":
     main()

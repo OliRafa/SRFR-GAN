@@ -15,7 +15,7 @@ network:
 
 # Settings for trainnig
 train:
-  batch_size: 8
+  batch_size: 10
   learning_rate: 0.1
   momentum: 0.9
   weight_decay: 5.0e-4
@@ -29,5 +29,5 @@ dataset:
     path: "/mnt/hdd_raid/datasets/LFW_LR/TFRecords/Raw_Low_Resolution.tfrecords"
   
   vggface2_lr:
-    train_path: "/mnt/hdd_raid/datasets/VGGFace2_LR/TFRecords/Train_Low_Resolution_Raw.tfrecords"
-    test_path: "/mnt/hdd_raid/datasets/VGGFace2_LR/TFRecords/Test_Low_Resolution_Raw.tfrecords"
+    train_path: "/mnt/hdd_raid/datasets/VGGFace2_LR/TFRecords/before/Train_Low_Resolution_Raw.tfrecords"
+    test_path: "/mnt/hdd_raid/datasets/VGGFace2_LR/TFRecords/before/Test_Low_Resolution_Raw.tfrecords"

@@ -1,36 +1,40 @@
+import logging
+
 import numpy as np
 import tensorflow as tf
 from scipy import interpolate
 from scipy.optimize import brentq
 from sklearn import metrics
+from tqdm import tqdm
 
 from training.losses import normalize
 from validation.lfw_helper import evaluate
 
-# Talvez no InputData.split_path dentro do _load_pairs tenha que retirar o @tf.function
-@tf.function
+LOGGER = logging.getLogger(__name__)
+
+
 def _get_single_embedding(model, dataset):
-    image, augmented_image = dataset.map(lambda a, b, c, d: (a, b))
-    embeddings, _ = model(image)
-    embeddings_augmented, _ = model(augmented_image)
+    image, augmented_image, _ = list(*dataset)
+    embeddings, _ = model(tf.expand_dims(image, 0))
+    embeddings_augmented, _ = model(tf.expand_dims(augmented_image, 0))
     embeddings = embeddings + embeddings_augmented
     return normalize(embeddings, name='lfw_normalize_embeddings')
 
-@tf.function
+
 def _get_embeddings(model, dataset, pairs):
     embeddings = []
     is_same_list = []
-    for id_01, id_02, is_same in pairs:
-        id_01_dataset = dataset.filter(lambda x: tf.equal(x[2], id_01))
-        id_02_dataset = dataset.filter(lambda x: tf.equal(x[2], id_02))
+    for id_01, id_02, is_same in tqdm(pairs):
+        id_01_dataset = dataset.filter(lambda x, y, z: tf.equal(z, id_01))
+        id_02_dataset = dataset.filter(lambda x, y, z: tf.equal(z, id_02))
 
         embeddings.append(_get_single_embedding(model, id_01_dataset))
         embeddings.append(_get_single_embedding(model, id_02_dataset))
 
         is_same_list.append(is_same)
-    return embeddings, is_same_list
+    return np.array(embeddings), is_same_list
 
-@tf.function
+
 def validate_model_on_lfw(model, dataset, pairs) -> float:
     """Validates the given model on the Labeled Faces in the Wild dataset.
 
