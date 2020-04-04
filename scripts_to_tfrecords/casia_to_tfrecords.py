@@ -4,7 +4,7 @@ import pathlib
 import tensorflow as tf
 import pandas as pd
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-import utility.timing
+import utils.timing
 
 print('--- Loading Metadata ---')
 
