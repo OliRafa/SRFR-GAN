@@ -15,17 +15,12 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.losses import (
     BinaryCrossentropy,
     CategoricalCrossentropy,
-    MAE,
     MeanAbsoluteError,
-    MSE,
     MeanSquaredError,
-    SparseCategoricalCrossentropy
 )
 
 LOGGER = logging.getLogger(__name__)
 
-# Checar diferença entre MeanSquaredError para MSE
-# O mesmo para MeanAbsoluteError e MAE
 
 @tf.function
 def normalize(logits, axis: int = None, name: str = None):
@@ -33,11 +28,13 @@ def normalize(logits, axis: int = None, name: str = None):
 
 @tf.function
 def _compute_l1_loss(fake_outputs, ground_truth, weigth: float = 1e-2):
-    return weigth * MeanAbsoluteError()(ground_truth, fake_outputs)
+    return weigth * MeanAbsoluteError(
+        reduction=tf.keras.losses.Reduction.SUM)(ground_truth, fake_outputs)
 
 @tf.function
 def _compute_euclidean_distance(fake_outputs, ground_truth) -> float:
-    return MeanSquaredError()(ground_truth, fake_outputs)
+    return MeanSquaredError(
+        reduction=tf.keras.losses.Reduction.SUM)(ground_truth, fake_outputs)
 
 @tf.function
 def _compute_categorical_crossentropy(logits, labels) -> float:
@@ -50,7 +47,8 @@ def _compute_categorical_crossentropy(logits, labels) -> float:
     ### Returns:
         Computed loss.
     """
-    return CategoricalCrossentropy()(logits, labels)
+    return CategoricalCrossentropy(
+        reduction=tf.keras.losses.Reduction.SUM)(logits, labels)
 
 @tf.function
 def _compute_binary_crossentropy(y_true, y_predicted) -> float:
@@ -63,10 +61,10 @@ def _compute_binary_crossentropy(y_true, y_predicted) -> float:
     ### Returns:
         the computed loss.
     """
-    return BinaryCrossentropy(from_logits=True)(
-        y_true,
-        y_predicted,
-    )
+    return BinaryCrossentropy(
+        from_logits=True,
+        reduction=tf.keras.losses.Reduction.SUM,
+    )(y_true, y_predicted)
 
 @tf.function
 def _apply_softmax(logits):
@@ -105,7 +103,7 @@ def compute_arcloss(
         name='fully_connected_to_softmax_crossentropy',
     )
     dense_layer.add_weight(shape=(512,))
-    dense_layer.set_weights((normalized_weights,))
+    dense_layer.set_weights((tf.Variable(normalized_weights, aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA),))
     original_target_embeddings = dense_layer(normalized_embeddings)
 
     cos_theta = original_target_embeddings / scale
