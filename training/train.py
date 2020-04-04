@@ -388,7 +388,10 @@ def _train_with_synthetic_images_only(
                     f' {float(discriminator_loss):.3f}'
                 )
             )
-            LOGGER.info(f' Seen so far: {step * batch_size} samples')
+            if step == 0:
+                LOGGER.info(f' Seen so far: {batch_size} samples')
+            else:
+                LOGGER.info(f' Seen so far: {step * batch_size} samples')
             with summary_writer.as_default():
                 tf.summary.scalar(
                     'srfr_loss_per_batch',

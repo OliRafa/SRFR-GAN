@@ -1,0 +1,4 @@
+#docker run --gpus all -d -u $(id -u):$(id -g) -v $(pwd)/datasets:/datasets -v $(pwd)/logs:/logs -v $(pwd)/training_checkpoints:/training_checkpoints  --name srfr arcfacetensorflow20
+docker run --gpus all -d -v $(pwd)/datasets:/datasets -v $(pwd)/logs:/logs -v $(pwd)/training_checkpoints:/training_checkpoints  --name srfr arcfacetensorflow20
+
+docker cp srfr:/app/train_logs.txt .
