@@ -208,9 +208,8 @@ pip-selfcheck.json
 .vscode/tasks.json
 .vscode/launch.json
 .vscode/extensions.json
-extra
 extra/*
-logs
 logs/*
-train_srfr_logs.txt
-nohup.out
+train_logs.txt
+datasets/*
+training_checkpoints/*

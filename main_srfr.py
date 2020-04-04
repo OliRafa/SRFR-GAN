@@ -4,6 +4,7 @@
 import datetime
 import logging
 import sys
+from pathlib import Path
 
 import tensorflow as tf
 from tensorflow import keras
@@ -22,7 +23,7 @@ from validation.validate import validate_model_on_lfw
 # Importar Natural DS.
 
 logging.basicConfig(
-    filename='train_srfr_logs.txt',
+    filename='train_logs.txt',
     level=logging.DEBUG,
 )
 LOGGER = logging.getLogger(__name__)
@@ -108,10 +109,10 @@ def main():
 
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_summary_writer = tf.summary.create_file_writer(
-        'logs/gradient_tape/{}/train'.format(current_time)
+        str(Path.cwd().joinpath('logs', 'gradient_tape', current_time, 'train')),
     )
     test_summary_writer = tf.summary.create_file_writer(
-        'logs/gradient_tape/{}/test'.format(current_time)
+        str(Path.cwd().joinpath('logs', 'gradient_tape', current_time, 'test')),
     )
 
     LOGGER.info(' -------- Starting Training --------')
@@ -121,7 +122,7 @@ def main():
     else:
         LOGGER.info(' Initializing from scratch.')
 
-    for epoch in range(int(checkpoint.step), EPOCHS + 1):
+    for epoch in range(int(checkpoint.step) + 1, EPOCHS + 1):
         timing.start(train_srfr_model.__name__)
         LOGGER.info(f' Start of epoch {epoch}')
 

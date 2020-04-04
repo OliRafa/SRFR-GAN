@@ -145,7 +145,8 @@ def compute_discriminator_loss(
 
 def create_vgg_model():
     vgg = VGG19(include_top=False, weights='imagenet')
-    vgg.trainable = False
+    weights = vgg.get_weights()
+    #vgg.trainable = False
 
     # Removing the activation function from the last conv layer 'block5_conv4'
     vgg.layers[-2].activation = None
@@ -154,12 +155,14 @@ def create_vgg_model():
     for layer in vgg.layers[1:-1]:
         vgg_output = layer(vgg_output)
 
-    # Creating the model with layers [input...last_conv_layer]
+    # Creating the model with layers [input, ..., last_conv_layer]
     # I.e. removing the last MaxPooling layer from the model
-    return keras.Model(
+    model = keras.Model(
         inputs=vgg.input,
         outputs=vgg_output,
     )
+    model.trainable = False
+    return model
 
 #@tf.function
 def _compute_perceptual_loss(
@@ -168,8 +171,8 @@ def _compute_perceptual_loss(
         ground_truth,
         weight: float = 1.0,
     ) -> float:
-    fake = vgg.predict(super_resolution)
-    real = vgg.predict(ground_truth)
+    fake = vgg(super_resolution)
+    real = vgg(ground_truth)
     return weight * _compute_euclidean_distance(fake, real)
 
 @tf.function
