@@ -390,39 +390,39 @@ def _train_with_synthetic_images_only(
                     f' {float(discriminator_loss):.3f}'
                 )
             )
-            LOGGER.info(f' Seen so far: {step * batch_size} samples')
-            try:
-                with summary_writer.as_default():
-                    tf.summary.scalar(
-                        'srfr_loss_per_batch',
-                        float(srfr_loss),
-                        step=step,
-                    )
-                    tf.summary.scalar(
-                        'discriminator_loss_per_batch',
-                        float(discriminator_loss),
-                        step=step,
-                    )
-                    tf.summary.image(
-                        'lr_images',
-                        synthetic_images,
-                        max_outputs=10,
-                        step=step
-                    )
-                    tf.summary.image(
-                        'hr_images',
-                        groud_truth_images,
-                        max_outputs=10,
-                        step=step
-                    )
-                    tf.summary.image(
-                        'sr_images',
-                        super_resolution_images,
-                        max_outputs=10,
-                        step=step
-                    )
-            except Exception as ex:
-                LOGGER.warning(f'Summary Writer Exception: {str(ex)}')
+            if step == 0:
+                LOGGER.info(f' Seen so far: {batch_size} samples')
+            else:
+                LOGGER.info(f' Seen so far: {step * batch_size} samples')
+            with summary_writer.as_default():
+                tf.summary.scalar(
+                    'srfr_loss_per_batch',
+                    float(srfr_loss),
+                    step=step,
+                )
+                tf.summary.scalar(
+                    'discriminator_loss_per_batch',
+                    float(discriminator_loss),
+                    step=step,
+                )
+                tf.summary.image(
+                    'lr_images',
+                    synthetic_images,
+                    max_outputs=10,
+                    step=step
+                )
+                tf.summary.image(
+                    'hr_images',
+                    groud_truth_images,
+                    max_outputs=10,
+                    step=step
+                )
+                tf.summary.image(
+                    'sr_images',
+                    super_resolution_images,
+                    max_outputs=10,
+                    step=step
+                )
     return (
         train_loss_function(srfr_losses),
         train_loss_function(discriminator_losses),
