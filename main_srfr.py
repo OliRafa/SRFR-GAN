@@ -41,6 +41,7 @@ def main():
     synthetic_dataset = vgg_dataset.get_dataset()
     synthetic_dataset = vgg_dataset.augment_dataset()
     synthetic_dataset = vgg_dataset.normalize_dataset()
+    synthetic_dataset = synthetic_dataset.cache()
     #synthetic_dataset_len = vgg_dataset.get_dataset_size()
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_dataset = synthetic_dataset.shuffle(
@@ -49,6 +50,7 @@ def main():
 
     lfw_dataset = LFW()
     test_dataset = lfw_dataset.get_dataset()
+    test_dataset = test_dataset.cache().prefetch(AUTOTUNE)
     lfw_pairs = lfw_dataset.load_lfw_pairs()
 
     #distributed_strategy = tf.distribute.MirroredStrategy()
