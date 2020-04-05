@@ -8,6 +8,7 @@ from pathlib import Path
 
 import tensorflow as tf
 from tensorflow import keras
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 from models.discriminator import DiscriminatorNetwork
 from models.srfr import SRFR
@@ -87,10 +88,14 @@ def main():
         learning_rate=learning_rate,
         momentum=train_settings['momentum']
     )
+    srfr_optimizer = mixed_precision.LossScaleOptimizer(srfr_optimizer,
+                                                        loss_scale='dynamic')
     discriminator_optimizer = keras.optimizers.SGD(
         learning_rate=learning_rate,
         momentum=train_settings['momentum']
     )
+    discriminator_optimizer = mixed_precision.LossScaleOptimizer(
+        discriminator_optimizer, loss_scale='dynamic')
 
     checkpoint = tf.train.Checkpoint(
         step=tf.Variable(1),

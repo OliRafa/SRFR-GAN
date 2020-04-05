@@ -11,7 +11,7 @@ import logging
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.applications import VGG19
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Activation, Dense
 from tensorflow.keras.losses import (
     BinaryCrossentropy,
     CategoricalCrossentropy,
@@ -103,6 +103,7 @@ def compute_arcloss(
         units=num_classes,
         use_bias=False,
         name='fully_connected_to_softmax_crossentropy',
+        dtype='float32',
     )
     dense_layer.add_weight(shape=(512,))
     dense_layer.set_weights((normalized_weights,))
@@ -155,6 +156,9 @@ def create_vgg_model():
     for layer in vgg.layers[1:-1]:
         vgg_output = layer(vgg_output)
 
+    # Casting from float16 to float32 for MixedPrecisionPolicy
+    vgg_output = Activation('linear', dtype='float32')(vgg_output)
+
     # Creating the model with layers [input, ..., last_conv_layer]
     # I.e. removing the last MaxPooling layer from the model
     model = keras.Model(
@@ -204,8 +208,10 @@ def _compute_generator_loss(
         discriminator_sr_predictions,
         discriminator_gt_predictions,
     ) -> float:
-    perceptual_loss = _compute_perceptual_loss(vgg, super_resolution, ground_truth)
-    generator_loss = _generator_loss(discriminator_sr_predictions, discriminator_gt_predictions)
+    perceptual_loss = _compute_perceptual_loss(vgg, super_resolution,
+                                               ground_truth)
+    generator_loss = _generator_loss(discriminator_sr_predictions,
+                                     discriminator_gt_predictions)
     l1_loss = _compute_l1_loss(super_resolution, ground_truth)
 
     return perceptual_loss + generator_loss + l1_loss

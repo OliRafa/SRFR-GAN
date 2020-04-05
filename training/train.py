@@ -129,6 +129,8 @@ def _train_step_synthetic_only(
         weight: float,
         scale: float,
         margin: float,
+        srfr_optimizer,
+        discriminator_optimizer,
     ):
     """Does a training step
 
@@ -146,20 +148,15 @@ def _train_step_synthetic_only(
  and the gradients for the Discriminative network.
     """
     with tf.GradientTape() as srfr_tape, \
-        tf.GradientTape() as discriminator_tape:
-        (
-            super_resolution_images,
-            embeddings,
-        ) = srfr_model(low_resolution_batch)
+            tf.GradientTape() as discriminator_tape:
+        (super_resolution_images, embeddings) = srfr_model(low_resolution_batch)
         fc_weights = srfr_model.get_weights()
-        discriminator_sr_predictions = sr_discriminator_model(super_resolution_images)
-        discriminator_gt_predictions = sr_discriminator_model(groud_truth_batch)
-        synthetic_face_recognition = (
-            embeddings,
-            ground_truth_classes,
-            fc_weights,
-            num_classes,
-        )
+        discriminator_sr_predictions = sr_discriminator_model(
+            super_resolution_images)
+        discriminator_gt_predictions = sr_discriminator_model(
+            groud_truth_batch)
+        synthetic_face_recognition = (embeddings, ground_truth_classes,
+                                      fc_weights, num_classes)
         srfr_loss = compute_joint_loss(
             vgg,
             super_resolution_images,
@@ -175,16 +172,21 @@ def _train_step_synthetic_only(
             discriminator_sr_predictions,
             discriminator_gt_predictions,
         )
-    srfr_grads = srfr_tape.gradient(srfr_loss, srfr_model.trainable_weights)
+        srfr_scaled_loss = srfr_optimizer.get_scaled_loss(srfr_loss)
+        discriminator_scaled_loss = discriminator_optimizer.get_scaled_loss(
+            discriminator_loss)
+
+    srfr_grads = srfr_tape.gradient(srfr_scaled_loss,
+                                    srfr_model.trainable_weights)
     discriminator_grads = discriminator_tape.gradient(
-        discriminator_loss,
+        discriminator_scaled_loss,
         sr_discriminator_model.trainable_weights,
     )
     return (
         srfr_loss,
-        srfr_grads,
+        srfr_optimizer.get_unscaled_gradients(srfr_grads),
         discriminator_loss,
-        discriminator_grads,
+        discriminator_optimizer.get_unscaled_gradients(discriminator_grads),
         super_resolution_images,
     )
 
@@ -366,6 +368,8 @@ def _train_with_synthetic_images_only(
             sr_weight,
             scale,
             margin,
+            srfr_optimizer,
+            discriminator_optimizer,
         )
         srfr_optimizer.apply_gradients(
             zip(srfr_grads, srfr_model.trainable_weights)

@@ -6,6 +6,11 @@ from tensorflow.keras.layers import (
     LeakyReLU,
     UpSampling2D
 )
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
+
 
 class ResidualDenseBlock(Model):
     """.
@@ -171,6 +176,7 @@ class GeneratorNetwork(Model):
             padding='same',
             name='conv_last',
             kernel_initializer='he_uniform',
+            dtype='float32',
         )
 
     def _generate_layers(
