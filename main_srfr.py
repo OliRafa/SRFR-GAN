@@ -45,8 +45,7 @@ def main():
     #synthetic_dataset_len = vgg_dataset.get_dataset_size()
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_dataset = synthetic_dataset.shuffle(
-        buffer_size=1024
-    ).batch(train_settings['batch_size']).prefetch(buffer_size=AUTOTUNE)
+    ).batch(train_settings['batch_size']).prefetch(AUTOTUNE)
 
     lfw_dataset = LFW()
     test_dataset = lfw_dataset.get_dataset()
@@ -165,6 +164,10 @@ def main():
             tf.summary.scalar('training_time', elapsed_time, step=epoch)
         LOGGER.info((f' Epoch {epoch}, SRFR Loss: {srfr_loss:.3f},'
                      f' Discriminator Loss: {discriminator_loss:.3f}'))
+        
+        save_path = manager.save()
+        LOGGER.info((f' Saved checkpoint for epoch {int(checkpoint.step)}:'
+                     f' {save_path}'))
 
         if epoch % 2 == 0:
             timing.start(validate_model_on_lfw.__name__)
@@ -193,10 +196,6 @@ def main():
                 f' Area Under Curve (AUC): {auc:.3f} -'
                 f' Equal Error Rate (EER): {eer:.3f} -'
             ))
-
-        save_path = manager.save()
-        LOGGER.info((f' Saved checkpoint for epoch {int(checkpoint.step)}:'
-                     f' {save_path}'))
 
         learning_rate.assign(
             adjust_learning_rate(
