@@ -45,6 +45,7 @@ def main():
     #synthetic_dataset_len = vgg_dataset.get_dataset_size()
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_dataset = synthetic_dataset.shuffle(
+        buffer_size=3000000
     ).batch(train_settings['batch_size']).prefetch(AUTOTUNE)
 
     lfw_dataset = LFW()
