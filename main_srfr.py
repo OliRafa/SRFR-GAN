@@ -45,7 +45,7 @@ def main():
     #synthetic_dataset_len = vgg_dataset.get_dataset_size()
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_dataset = synthetic_dataset.shuffle(
-        buffer_size=3000000
+        buffer_size=3_072_000
     ).batch(train_settings['batch_size']).prefetch(AUTOTUNE)
 
     lfw_dataset = LFW()
@@ -129,7 +129,7 @@ def main():
     else:
         LOGGER.info(' Initializing from scratch.')
 
-    for epoch in range(int(checkpoint.step) + 1, EPOCHS + 1):
+    for epoch in range(int(checkpoint.step), EPOCHS + 1):
         timing.start(train_srfr_model.__name__)
         LOGGER.info(f' Start of epoch {epoch}')
 

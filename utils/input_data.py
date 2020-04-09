@@ -308,7 +308,7 @@ class InputData():
             decoding_function,
         ):
         self._logger.info(f' Loading from {dataset_paths}.')
-        dataset = tf.data.TFRecordDataset(dataset_paths)
+        dataset = tf.data.TFRecordDataset(dataset_paths, num_parallel_reads=4)
         dataset = dataset.map(
             decoding_function,
             num_parallel_calls=AUTOTUNE,
