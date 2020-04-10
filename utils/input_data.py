@@ -620,7 +620,8 @@ class VggFace2(InputData):
                 self.normalize_image(image_lr),
                 self.normalize_image(image_hr),
                 class_id,
-            )
+            ),
+            num_parallel_calls=AUTOTUNE,
         )
 
 def parseConfigsFile(
