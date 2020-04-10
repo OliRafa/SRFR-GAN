@@ -1,91 +1,110 @@
-"""Main training module."""
+"""Main training module for the Joint Learning Super Resolution Face\
+ Recognition.
+"""
 import datetime
 import logging
+import sys
+from pathlib import Path
 
 import tensorflow as tf
 from tensorflow import keras
-from utils.input_data import augment_dataset, load_dataset, normalize_images
-from models.resnet import ResNet
-from training.train import train_model, adjust_learning_rate
-from validation.validate import validate_model
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+
+from models.discriminator import DiscriminatorNetwork
+from models.srfr import SRFR
+from training.train import (
+    adjust_learning_rate,
+    generate_num_epochs,
+    train_srfr_model,
+)
+from utils.input_data import LFW, parseConfigsFile, VggFace2
+from utils.timing import TimingLogger
+from validation.validate import validate_model_on_lfw
+
+# Importar Natural DS.
 
 logging.basicConfig(
     filename='train_logs.txt',
-    level=logging.INFO
+    level=logging.DEBUG,
 )
 LOGGER = logging.getLogger(__name__)
-
 AUTOTUNE = tf.data.experimental.AUTOTUNE
-NETWORK_SETTINGS = {
-    'embedding_size': 512,
-    'scale': 64,
-    'angular_margin': 0.5,
-}
-
-TRAIN_SETTINGS = {
-    'batch_size': 64,
-    'learning_rate': 0.1,
-    'momentum': 0.9,
-    'weight_decay': 5e-4,
-    'iterations': 400_000
-}
-
-def _num_epochs(iterations, len_dataset, batch_size):
-    train_size = tf.math.ceil(len_dataset / batch_size)
-    return tf.cast(tf.math.ceil(iterations / train_size), dtype=tf.int32)
 
 def main():
     """Main training function."""
-    train_dataset, num_train_classes, dataset_len = load_dataset('VGGFace2')
-    train_dataset = train_dataset.map(augment_dataset)
-    train_dataset = train_dataset.map(
-        lambda image, class_id: (normalize_images(image), class_id)
+    timing = TimingLogger()
+    timing.start()
+    network_settings, train_settings, preprocess_settings = parseConfigsFile(
+        ['network', 'train', 'preprocess'])
+    LOGGER.info(' -------- Importing Datasets --------')
+    vgg_dataset = VggFace2(mode='concatenated')
+    synthetic_dataset = vgg_dataset.get_dataset()
+    synthetic_dataset = vgg_dataset.augment_dataset()
+    synthetic_dataset = vgg_dataset.normalize_dataset()
+    synthetic_dataset = synthetic_dataset.cache()
+    synthetic_dataset_len = vgg_dataset.get_dataset_size()
+    synthetic_num_classes = vgg_dataset.get_number_of_classes()
+    synthetic_dataset = synthetic_dataset.shuffle(
+        buffer_size=5_120
+    ).repeat().batch(train_settings['batch_size']).prefetch(AUTOTUNE)
+
+    lfw_dataset = LFW()
+    test_dataset = lfw_dataset.get_dataset()
+    test_dataset = test_dataset.cache().prefetch(AUTOTUNE)
+    lfw_pairs = lfw_dataset.load_lfw_pairs()
+
+    #distributed_strategy = tf.distribute.MirroredStrategy()
+
+    #distributed_synthetic_dataset = distributed_strategy\
+    #    .experimental_distribute_dataset(synthetic_dataset)
+    #distributed_test_dataset = distributed_strategy\
+    #    .experimental_distribute_dataset(test_dataset)
+
+    LOGGER.info(' -------- Creating Models and Optimizers --------')
+
+    EPOCHS = generate_num_epochs(
+        train_settings['iterations'],
+        synthetic_dataset_len,
+        train_settings['batch_size']
     )
-    train_dataset = train_dataset.shuffle(buffer_size=2 * dataset_len)\
-        .batch(TRAIN_SETTINGS['batch_size']).prefetch(buffer_size=AUTOTUNE)
 
-    test_dataset, _, test_dataset_len = load_dataset(
-        'LFW',
-        remove_overlaps=False,
-        sample_ids=True
+    srfr_model = SRFR(
+        num_filters=network_settings['num_filters'],
+        depth=50,
+        categories=network_settings['embedding_size'],
+        num_gc=network_settings['gc'],
+        num_blocks=network_settings['num_blocks'],
+        residual_scailing=network_settings['residual_scailing'],
+        training=True,
+        input_shape=preprocess_settings['image_shape_low_resolution'],
     )
-    test_dataset = test_dataset.map(augment_dataset)
-    test_dataset = test_dataset.map(
-        lambda image, class_id: (normalize_images(image), class_id)
-    )
-    test_dataset = test_dataset.shuffle(buffer_size=2 * test_dataset_len)\
-        .batch(TRAIN_SETTINGS['batch_size']).prefetch(buffer_size=AUTOTUNE)
-
-    distributed_strategy = tf.distribute.MirroredStrategy()
-
-    distributed_train_dataset = distributed_strategy\
-        .experimental_distribute_dataset(train_dataset)
-    distributed_test_dataset = distributed_strategy\
-        .experimental_distribute_dataset(test_dataset)
-
-    EPOCHS = _num_epochs(
-        TRAIN_SETTINGS['iterations'],
-        dataset_len,
-        TRAIN_SETTINGS['batch_size']
-    )
-
-    model = ResNet(50, NETWORK_SETTINGS['embedding_size'], trainable=False)
+    sr_discriminator_model = DiscriminatorNetwork()
 
     learning_rate = tf.Variable(
-        TRAIN_SETTINGS['learning_rate'],
+        train_settings['learning_rate'],
         trainable=False,
         dtype=tf.float32,
         name='learning_rate'
     )
-    optimizer = keras.optimizers.SGD(
+    srfr_optimizer = keras.optimizers.SGD(
         learning_rate=learning_rate,
-        momentum=TRAIN_SETTINGS['momentum']
+        momentum=train_settings['momentum']
     )
+    srfr_optimizer = mixed_precision.LossScaleOptimizer(srfr_optimizer,
+                                                        loss_scale='dynamic')
+    discriminator_optimizer = keras.optimizers.SGD(
+        learning_rate=learning_rate,
+        momentum=train_settings['momentum']
+    )
+    discriminator_optimizer = mixed_precision.LossScaleOptimizer(
+        discriminator_optimizer, loss_scale='dynamic')
 
     checkpoint = tf.train.Checkpoint(
         step=tf.Variable(1),
-        model=model,
-        optimizer=optimizer,
+        srfr_model=srfr_model,
+        sr_discriminator_model=sr_discriminator_model,
+        srfr_optimizer=srfr_optimizer,
+        discriminator_optimizer=discriminator_optimizer,
         learning_rate=learning_rate
     )
     manager = tf.train.CheckpointManager(
@@ -95,67 +114,98 @@ def main():
     )
     train_loss = tf.keras.metrics.Mean(name='train_loss')
 
-    CURRENT_TIME = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     train_summary_writer = tf.summary.create_file_writer(
-        'logs/gradient_tape/{}/train'.format(CURRENT_TIME)
+        str(Path.cwd().joinpath('logs', 'gradient_tape', current_time, 'train')),
     )
     test_summary_writer = tf.summary.create_file_writer(
-        'logs/gradient_tape/{}/test'.format(CURRENT_TIME)
+        str(Path.cwd().joinpath('logs', 'gradient_tape', current_time, 'test')),
     )
-    #current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    #train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
-    #train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 
-    #logdir = "logs/"
-
-    #tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
-
-    LOGGER.info('-------- Starting Training --------')
+    LOGGER.info(' -------- Starting Training --------')
     checkpoint.restore(manager.latest_checkpoint)
     if manager.latest_checkpoint:
-        LOGGER.info(f'Restored from {manager.latest_checkpoint}')
+        LOGGER.info(f' Restored from {manager.latest_checkpoint}')
     else:
-        LOGGER.info('Initializing from scratch.')
+        LOGGER.info(' Initializing from scratch.')
 
-    for epoch in range(1, EPOCHS + 1):
-        LOGGER.info(f'Start of epoch {epoch}')
+    for epoch in range(int(checkpoint.step), EPOCHS + 1):
+        timing.start(train_srfr_model.__name__)
+        LOGGER.info(f' Start of epoch {epoch}')
 
-        loss_value = train_model(
-            model,
-            train_dataset,
-            num_train_classes,
-            TRAIN_SETTINGS['batch_size'],
-            optimizer,
+        srfr_loss, discriminator_loss = train_srfr_model(
+            srfr_model,
+            sr_discriminator_model,
+            train_settings['batch_size'],
+            srfr_optimizer,
+            discriminator_optimizer,
             train_loss,
-            NETWORK_SETTINGS['scale'],
-            NETWORK_SETTINGS['angular_margin']
+            synthetic_dataset,
+            synthetic_num_classes,
+            # natural_ds,
+            # num_classes_natural,
+            sr_weight=train_settings['super_resolution_weight'],
+            scale=train_settings['scale'],
+            margin=train_settings['angular_margin'],
+            summary_writer=train_summary_writer,
         )
+        elapsed_time = timing.end(train_srfr_model.__name__, True)
         with train_summary_writer.as_default():
-            tf.summary.scalar('loss', loss_value, step=epoch)
-            #tf.summary.scalar('accuracy', train_accuracy.result(), step=epoch)
+            tf.summary.scalar('srfr_loss', srfr_loss, step=epoch)
+            tf.summary.scalar(
+                'discriminator_loss',
+                discriminator_loss,
+                step=epoch,
+            )
             tf.summary.scalar(
                 'learning_rate',
                 learning_rate.read_value(),
                 step=epoch
             )
+            tf.summary.scalar('training_time', elapsed_time, step=epoch)
+        LOGGER.info((f' Epoch {epoch}, SRFR Loss: {srfr_loss:.3f},'
+                     f' Discriminator Loss: {discriminator_loss:.3f}'))
+        
+        save_path = manager.save()
+        LOGGER.info((f' Saved checkpoint for epoch {int(checkpoint.step)}:'
+                     f' {save_path}'))
 
+        if epoch % 2 == 0:
+            timing.start(validate_model_on_lfw.__name__)
+            (accuracy_mean, accuracy_std, validation_rate, validation_std, \
+                far, auc, eer) = validate_model_on_lfw(
+                    srfr_model,
+                    test_dataset,
+                    lfw_pairs,
+                )
+            elapsed_time = timing.end(validate_model_on_lfw.__name__, True)
+            with test_summary_writer.as_default():
+                tf.summary.scalar('accuracy_mean', accuracy_mean, step=epoch)
+                tf.summary.scalar('accuracy_std', accuracy_std, step=epoch)
+                tf.summary.scalar('validation_rate', validation_rate, step=epoch)
+                tf.summary.scalar('validation_std', validation_std, step=epoch)
+                tf.summary.scalar('far', far, step=epoch)
+                tf.summary.scalar('auc', auc, step=epoch)
+                tf.summary.scalar('eer', eer, step=epoch)
+                tf.summary.scalar('testing_time', elapsed_time, step=epoch)
 
-        LOGGER.info(f'Epoch {epoch}, Loss: {float(loss_value):.10f}')
-
-        if epoch % 50 == 0:
-            accuracy = validate_model(model)
-            LOGGER.info(f'Accuracy on LFW for epoch {epoch}: {accuracy}')
-
-        checkpoint.step.assign_add(1)
-        if int(checkpoint.step) % 20 == 0:
-            save_path = manager.save()
-            LOGGER.info(
-                f'Saved checkpoint for epoch {int(checkpoint.step)}: {save_path}'
-            )
+            LOGGER.info((
+                f' Validation on LFW: Epoch {epoch} -'
+                f' Accuracy: {accuracy_mean:.3f} +- {accuracy_std:.3f} -'
+                f' Validation Rate: {validation_rate:.3f} +-'
+                f' {validation_std:.3f} @ FAR {far:.3f} -'
+                f' Area Under Curve (AUC): {auc:.3f} -'
+                f' Equal Error Rate (EER): {eer:.3f} -'
+            ))
 
         learning_rate.assign(
-            adjust_learning_rate(learning_rate.read_value(), epoch)
+            adjust_learning_rate(
+                learning_rate.read_value(),
+                int(checkpoint.step),
+            )
         )
+        checkpoint.step.assign_add(1)
+
 
 if __name__ == "__main__":
     main()

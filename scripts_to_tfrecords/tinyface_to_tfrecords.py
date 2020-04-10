@@ -3,7 +3,7 @@ import sys
 import pathlib
 import tensorflow as tf
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-import utility.timing
+import utils.timing
 
 tf.debugging.set_log_device_placement(True)
 

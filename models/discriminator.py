@@ -7,6 +7,11 @@ from tensorflow.keras.layers import (
     Flatten,
     LeakyReLU,
 )
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
+
 
 class BasicBlock(Model):
     """.
@@ -49,6 +54,7 @@ class BasicBlock(Model):
         x = self._batch_normalization_2(x)
         return self._leaky_relu(x)
 
+
 class DiscriminatorNetwork(Model):
     """.
 
@@ -67,7 +73,7 @@ class DiscriminatorNetwork(Model):
             strides=(1, 1),
             padding='same',
             activation=LeakyReLU(alpha=0.2),
-            name='_conv_01_01'
+            name='_conv_01_01',
         )
         self._conv_2 = Conv2D(
             filters=64,
@@ -75,11 +81,9 @@ class DiscriminatorNetwork(Model):
             strides=(2, 2),
             padding='same',
             activation=LeakyReLU(alpha=0.2),
-            name='_conv_01_02'
+            name='_conv_01_02',
         )
-        self._batch_normalization = BatchNormalization(
-            name='_bn_01'
-        )
+        self._batch_normalization = BatchNormalization(name='_bn_01')
         self._leaky_relu = LeakyReLU(alpha=0.2)
         self._block_2 = BasicBlock(128, 2)
         self._block_3 = BasicBlock(256, 3)
@@ -88,11 +92,12 @@ class DiscriminatorNetwork(Model):
         self._fully_connected_1 = Dense(
             1024,
             activation=LeakyReLU(alpha=0.2),
-            name='fully_connected_01'
+            name='fully_connected_01',
         )
         self._fully_connected_2 = Dense(
             1,
-            name='fully_connected_02'
+            name='fully_connected_02',
+            dtype='float32',
         )
 
     def call(self, input_tensor):

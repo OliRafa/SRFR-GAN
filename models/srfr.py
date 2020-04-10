@@ -1,8 +1,14 @@
 import tensorflow as tf
 from tensorflow.keras import Model
 from tensorflow.keras.layers import Conv2D, Input, LeakyReLU
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+
 from models.generator import GeneratorNetwork
 from models.resnet import ResNet
+
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
+
 
 class SRFR(Model):
     def __init__(

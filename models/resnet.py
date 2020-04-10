@@ -12,8 +12,12 @@ from tensorflow.keras.layers import (
     ReLU,
     ZeroPadding2D
 )
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 from utils.input_data import load_resnet_config
+
+policy = mixed_precision.Policy('mixed_float16')
+mixed_precision.set_policy(policy)
 
 #class ConvBlock(Model):
 #    def __init__(self):
@@ -149,18 +153,19 @@ class ResNet(Model):
         self._bn = BatchNormalization(
             momentum=0.9,
             epsilon=2e-05,
-            trainable=self._trainable
+            trainable=self._trainable,
         )
         self._dropout = Dropout(rate=0.4)
         self._fully_connected = Dense(
             units=categories,
             activation='softmax',
-            name='fully_connected'
+            name='fully_connected',
         )
         self._bn2 = BatchNormalization(
             momentum=0.9,
             epsilon=2e-05,
-            trainable=self._trainable
+            trainable=self._trainable,
+            dtype='float32',
         )
 
     def _generate_layers(self, layers, filters):

@@ -126,7 +126,7 @@ def _mtcnn_detect_faces(image):
     #except tf.errors.ResourceExhaustedError:
     #    detected_faces = _mtcnn_detect_faces(image)
     #return detected_faces
-    return MTCNN().detect_faces(image)
+    return MTCNN(min_face_size=10, steps_threshold=[0.5, 0.6, 0.6]).detect_faces(image)
 
 @bind
 def _detect_faces(image_container):
@@ -288,23 +288,25 @@ def detect_and_align_faces(dataset_folder, destination_folder):
 
     gc.collect()
 
-    dataset_folder = _dataset_generator(dataset_folder, destination_folder)
+    #dataset_folder = _dataset_generator(dataset_folder, destination_folder)
     #dataset_folder = it.islice(dataset_folder)
-    batches = ichunked(dataset_folder, 256)
+    #batches = ichunked(dataset_folder, 256)
+    print(dataset_folder)
 
     _preprocess = partial(
         _preprocess_pipeline,
         destination_folder=DESTINATION_FOLDER
     )
+    _preprocess(dataset_folder)
 
-    for batch in batches:
-        gc.freeze()
-        with futures.ProcessPoolExecutor() as executor:
-            executor.map(_preprocess, batch)
+    #for batch in batches:
+    #    gc.freeze()
+    #    with futures.ProcessPoolExecutor() as executor:
+    #        executor.map(_preprocess, batch)
 
 if __name__ == '__main__':
-    DATASET_FOLDER = '/mnt/hdd_raid/datasets/VGGFace2/test/'
-    DESTINATION_FOLDER = '/mnt/hdd_raid/datasets/VGGFace2_LR/Images/test/'
+    DATASET_FOLDER = '/mnt/hdd_raid/datasets/LFW/lfw-deepfunneled/lfw-deepfunneled/Marilyn_Monroe/Marilyn_Monroe_0001.jpg'
+    DESTINATION_FOLDER = '/mnt/hdd_raid/datasets/LFW_LR/Images/train/'
     #DATASET_FOLDER = '/mnt/hdd_raid/datasets/TESTE/t1/'
     #DESTINATION_FOLDER = '/mnt/hdd_raid/datasets/TESTE/t2/'
 
