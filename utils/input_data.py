@@ -288,19 +288,14 @@ class InputData():
             class_id = args[-2]
         else:
             class_id = args[-1]
+
+        # When class_id is in self._overlaps, returns False so that ds.filter()
+        # will filter this id out.
         return tf.cond(
             tf.math.reduce_any(tf.math.equal(class_id, self._overlaps)),
-            lambda: True,
             lambda: False,
+            lambda: True,
         )
-
-    #@tf.function
-    #def _filter_overlaps(self, *args):
-    #    if self._sample_ids:
-    #        class_id = args[-2]
-    #    else:
-    #        class_id = args[-1]
-    #    return False if class_id in self._overlaps else True
 
     def _load_from_tfrecords(
             self,
