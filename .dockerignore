@@ -1,6 +1,8 @@
 **/__pycache__
 **/.classpath
 **/.dockerignore
+**/.ipynb_checkpoints
+**/.venv
 **/.env
 **/.git
 **/.gitignore
@@ -27,3 +29,5 @@ datasets/*
 logs/*
 training_checkpoints/*
 extra
+scripts_to_tfrecords/*
+scripts_to_tfrecords

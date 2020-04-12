@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Conv2D, Input, LeakyReLU
+from tensorflow.keras.layers import Conv2D, Dense, LeakyReLU
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 from models.generator import GeneratorNetwork
@@ -21,18 +21,22 @@ class SRFR(Model):
             residual_scailing: float = 0.2,
             training: bool = True,
             input_shape=(28, 28, 3),
+            num_classes_syn: int = None,
+            both: bool = False,
+            num_classes_nat: int = None,
         ):
         super(SRFR, self).__init__()
         self._training = training
-        self._natural_input = Conv2D(
-            input_shape=input_shape,
-            filters=num_filters,
-            kernel_size=(3, 3),
-            strides=1,
-            padding='same',
-            name='natural_input',
-            activation=LeakyReLU(alpha=0.2),
-        )
+        if both:
+            self._natural_input = Conv2D(
+                input_shape=input_shape,
+                filters=num_filters,
+                kernel_size=(3, 3),
+                strides=1,
+                padding='same',
+                name='natural_input',
+                activation=LeakyReLU(alpha=0.2),
+            )
         self._synthetic_input = Conv2D(
             input_shape=input_shape,
             filters=num_filters,
@@ -53,6 +57,26 @@ class SRFR(Model):
             categories,
             training
         )
+        if self._training:
+            if both:
+                self._fc_classification_nat = Dense(
+                    input_shape=(categories,),
+                    units=num_classes_nat,
+                    activation=None,
+                    use_bias=False,
+                    dtype='float32',
+                    name='fully_connected_to_softmax_crossentropy_nat',
+                )
+                self._fc_classification_nat.build(tf.TensorShape([None, 512]))
+            self._fc_classification_syn = Dense(
+                input_shape=(categories,),
+                units=num_classes_syn,
+                activation=None,
+                use_bias=False,
+                dtype='float32',
+                name='fully_connected_to_softmax_crossentropy_syn',
+            )
+            self._fc_classification_syn.build(tf.TensorShape([None, 512]))
 
     @tf.function
     def _call_evaluating(self, input_tensor):
@@ -63,9 +87,6 @@ class SRFR(Model):
             super_resolution_image
         )
         return super_resolution_image, embeddings
-
-    def get_weights(self):
-        return self._face_recognition.get_weights()
 
     @tf.function
     def _call_training(self, synthetic_images, natural_images=None):
@@ -90,3 +111,19 @@ class SRFR(Model):
             return self._call_training(input_tensor_01, input_tensor_02)
 
         return self._call_evaluating(input_tensor_01)
+
+    def get_weights(self, net_type: str = 'syn'):
+        if net_type == 'nat':
+            return self._fc_classification_nat.get_weights()
+        return self._fc_classification_syn.get_weights()
+
+    def set_weights(self, weights, net_type: str = 'syn') -> None:
+        if net_type == 'nat':
+            self._fc_classification_nat.set_weights(weights)
+        else:
+            self._fc_classification_syn.set_weights(weights)
+
+    def call_fc_classification(self, input, net_type: str = 'syn'):
+        if net_type == 'nat':
+            return self._fc_classification_nat(input)
+        return self._fc_classification_syn(input)

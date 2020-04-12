@@ -24,7 +24,9 @@ LOGGER = logging.getLogger(__name__)
 
 @tf.function
 def normalize(logits, axis: int = None, name: str = None):
-    return tf.linalg.normalize(logits, ord='euclidean', axis=axis, name=name)[0]
+    normalized = tf.linalg.normalize(logits, ord='euclidean', axis=axis,
+                                     name=name)[0]
+    return tf.squeeze(normalized)
 
 @tf.function
 def _compute_l1_loss(fake_outputs, ground_truth, weigth: float = 1e-2):
@@ -70,14 +72,31 @@ def _compute_binary_crossentropy(y_true, y_predicted) -> float:
 def _apply_softmax(logits):
     return keras.activations.softmax(logits)
 
+
+def _create_dense_layer(_, normalized_weights, num_classes):
+    input_shape = tf.TensorShape([None, 512])
+    dense_layer = Dense(
+        input_shape=(512,),
+        units=num_classes,
+        use_bias=False,
+        name='fully_connected_to_softmax_crossentropy',
+        dtype='float32',
+        trainable=False,
+    )
+    dense_layer.build(input_shape)
+    dense_layer.set_weights([normalized_weights.read_value()])
+    return dense_layer
+
+
 #@tf.function
 def compute_arcloss(
         embeddings,
         ground_truth,
-        fc_weights,
         num_classes: int,
         scale: int,
         margin: float,
+        srfr_model,
+        net_type: str = 'syn',
     ) -> float:
     """Compute the ArcLoss.
 
@@ -92,19 +111,18 @@ def compute_arcloss(
 
     ### Returns
         The loss value."""
-    normalized_weights = normalize(fc_weights, name='weights_normalization')
+    fc_weights = srfr_model.get_weights(net_type)
+    normalized_weights = tf.Variable(
+        normalize(fc_weights, name='weights_normalization'),
+        aggregation=tf.VariableAggregation.NONE,
+    )
     normalized_embeddings = normalize(
         embeddings, axis=1, name='embeddings_normalization') * scale
-
-    dense_layer = Dense(
-        input_shape=(512,),
-        units=num_classes,
-        use_bias=False,
-        name='fully_connected_to_softmax_crossentropy',
-        dtype='float32',
-    )
-    dense_layer.add_weight(shape=(512,))
-    dense_layer.set_weights((tf.Variable(normalized_weights, aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA),))
+    replica = tf.distribute.get_replica_context()
+    dense_layer = replica.merge_call(
+        _create_dense_layer,
+        args=(normalized_weights, num_classes),
+        )
     original_target_embeddings = dense_layer(normalized_embeddings)
 
     cos_theta = original_target_embeddings / scale
@@ -246,6 +264,7 @@ def compute_joint_loss_simple(
     return face_recognition_loss + weight * super_resolution_loss
 
 def compute_joint_loss(
+        srfr_model,
         vgg,
         super_resolution_images,
         ground_truth_images,
@@ -286,18 +305,19 @@ classes, fc_weights, num_classes) from the Natural SRFR.
         synthetic_face_recognition[0],
         synthetic_face_recognition[1],
         synthetic_face_recognition[2],
-        synthetic_face_recognition[3],
         scale,
         margin,
+        srfr_model,
     )
     if natural_face_recognition:
         natural_face_recognition_loss = compute_arcloss(
             natural_face_recognition[0],
             natural_face_recognition[1],
             natural_face_recognition[2],
-            synthetic_face_recognition[3],
             scale,
             margin,
+            srfr_model,
+            'nat',
         )
         fr_loss = synthetic_face_recognition_loss + natural_face_recognition_loss
         return fr_loss + weight * super_resolution_loss

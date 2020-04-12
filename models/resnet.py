@@ -206,9 +206,3 @@ class ResNet(Model):
         output = self._fully_connected(output)
         output = self._bn2(output)
         return output
-
-    def get_weights(self):
-        """Get weights from the Batch Normalization after the last Fully\
- Connected layer.
-        """
-        return self._bn2.get_weights()[0]

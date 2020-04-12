@@ -11,7 +11,6 @@ from training.losses import (
 
 LOGGER = logging.getLogger(__name__)
 
-# Terminar a parte do Discriminator nas duas funções.
 
 def generate_num_epochs(iterations, len_dataset, batch_size):
     LOGGER.info(f' Generating number of epochs for {iterations} iterations,\
@@ -20,6 +19,7 @@ def generate_num_epochs(iterations, len_dataset, batch_size):
     epochs = tf.cast(tf.math.ceil(iterations / train_size), dtype=tf.int32)
     LOGGER.info(f' Number of epochs: {epochs}.')
     return epochs
+
 
 @tf.function
 def adjust_learning_rate(current_learning_rate: float, epoch: int = 1) -> float:
@@ -32,7 +32,7 @@ def adjust_learning_rate(current_learning_rate: float, epoch: int = 1) -> float:
     ### Returns
         New value for the learning rate.
     """
-    if epoch % 20 == 0:
+    if epoch % 4 == 0:
         return current_learning_rate / 10
     return current_learning_rate
 
@@ -118,10 +118,11 @@ def train_model(
             LOGGER.info(f' Seen so far: {step * batch_size} samples')
     return train_loss_function(loss_value)
 
+
 def _train_step_synthetic_only(
         vgg,
         srfr_model,
-        sr_discriminator_model,
+        discriminator_model,
         low_resolution_batch,
         groud_truth_batch,
         ground_truth_classes,
@@ -151,14 +152,14 @@ def _train_step_synthetic_only(
     with tf.GradientTape() as srfr_tape, \
             tf.GradientTape() as discriminator_tape:
         (super_resolution_images, embeddings) = srfr_model(low_resolution_batch)
-        fc_weights = srfr_model.get_weights()
-        discriminator_sr_predictions = sr_discriminator_model(
+        discriminator_sr_predictions = discriminator_model(
             super_resolution_images)
-        discriminator_gt_predictions = sr_discriminator_model(
+        discriminator_gt_predictions = discriminator_model(
             groud_truth_batch)
         synthetic_face_recognition = (embeddings, ground_truth_classes,
-                                      fc_weights, num_classes)
+                                      num_classes)
         srfr_loss = compute_joint_loss(
+            srfr_model,
             vgg,
             super_resolution_images,
             groud_truth_batch,
@@ -184,15 +185,18 @@ def _train_step_synthetic_only(
                                     srfr_model.trainable_weights)
     discriminator_grads = discriminator_tape.gradient(
         discriminator_scaled_loss,
-        sr_discriminator_model.trainable_weights,
+        discriminator_model.trainable_weights,
     )
-    return (
-        srfr_loss,
-        srfr_optimizer.get_unscaled_gradients(srfr_grads),
-        discriminator_loss,
-        discriminator_optimizer.get_unscaled_gradients(discriminator_grads),
-        super_resolution_images,
+    srfr_optimizer.apply_gradients(
+        zip(srfr_optimizer.get_unscaled_gradients(srfr_grads),
+            srfr_model.trainable_weights)
     )
+    discriminator_optimizer.apply_gradients(
+        zip(discriminator_optimizer.get_unscaled_gradients(discriminator_grads),
+            discriminator_model.trainable_weights)
+    )
+    return srfr_loss, discriminator_loss, super_resolution_images,
+
 
 @tf.function
 def _train_step_joint_learn(
@@ -336,7 +340,7 @@ def _train_with_natural_images(
         train_loss_function(discriminator_loss),
     )
 
-#@tf.function
+
 def _train_with_synthetic_images_only(
         vgg,
         srfr_model,
@@ -355,29 +359,30 @@ def _train_with_synthetic_images_only(
     ) -> float:
     srfr_losses = []
     discriminator_losses = []
-    for step, (synthetic_images, groud_truth_images, synthetic_classes) in enumerate(dataset):
-        (srfr_loss, srfr_grads, discriminator_loss, discriminator_grads,
-         super_resolution_images) = strategy.experimental_run_v2(_train_step_synthetic_only,
-                                                 args=(
-                                                     vgg,
-                                                     srfr_model,
-                                                     discriminator_model,
-                                                     synthetic_images,
-                                                     groud_truth_images,
-                                                     synthetic_classes,
-                                                     num_classes,
-                                                     sr_weight,
-                                                     scale,
-                                                     margin,
-                                                     batch_size,
-                                                 ),
+    for step, (synthetic_images, groud_truth_images,
+               synthetic_classes) in enumerate(dataset, start=1):
+        (srfr_loss, discriminator_loss,
+         super_resolution_images) = strategy.experimental_run_v2(
+            _train_step_synthetic_only,
+            args=(
+                vgg,
+                srfr_model,
+                discriminator_model,
+                synthetic_images,
+                groud_truth_images,
+                synthetic_classes,
+                num_classes,
+                sr_weight,
+                scale,
+                margin,
+                batch_size,
+                srfr_optimizer,
+                discriminator_optimizer,
+            ),
         )
-        srfr_optimizer.apply_gradients(
-            zip(srfr_grads, srfr_model.trainable_weights)
-        )
-        discriminator_optimizer.apply_gradients(
-            zip(discriminator_grads, discriminator_model.trainable_weights)
-        )
+        srfr_loss = strategy.reduce(tf.distribute.ReduceOp.MEAN, srfr_loss, None)
+        discriminator_loss = strategy.reduce(tf.distribute.ReduceOp.MEAN,
+                                             discriminator_loss, None)
         srfr_losses.append(srfr_loss)
         discriminator_losses.append(discriminator_loss)
         if step % 1000 == 0:
@@ -393,10 +398,7 @@ def _train_with_synthetic_images_only(
                     f' {float(discriminator_loss):.3f}'
                 )
             )
-            if step == 0:
-                LOGGER.info(f' Seen so far: {batch_size} samples')
-            else:
-                LOGGER.info(f' Seen so far: {step * batch_size} samples')
+            LOGGER.info(f' Seen so far: {step * batch_size} samples')
             with summary_writer.as_default():
                 tf.summary.scalar(
                     'srfr_loss_per_batch',
@@ -410,19 +412,19 @@ def _train_with_synthetic_images_only(
                 )
                 tf.summary.image(
                     'lr_images',
-                    synthetic_images,
+                    tf.concat(synthetic_images.values, axis=0),
                     max_outputs=10,
                     step=step
                 )
                 tf.summary.image(
                     'hr_images',
-                    groud_truth_images,
+                    tf.concat(groud_truth_images.values, axis=0),
                     max_outputs=10,
                     step=step
                 )
                 tf.summary.image(
                     'sr_images',
-                    super_resolution_images,
+                    tf.concat(super_resolution_images.values, axis=0),
                     max_outputs=10,
                     step=step
                 )
@@ -431,7 +433,7 @@ def _train_with_synthetic_images_only(
         train_loss_function(discriminator_losses),
     )
 
-#@tf.function
+
 def train_srfr_model(
         strategy,
         srfr_model,
