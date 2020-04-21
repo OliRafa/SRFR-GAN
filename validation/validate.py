@@ -7,7 +7,7 @@ from scipy.optimize import brentq
 from sklearn import metrics
 from tqdm import tqdm
 
-from training.losses import normalize
+from training.metrics import normalize
 from validation.lfw_helper import evaluate
 
 LOGGER = logging.getLogger(__name__)
