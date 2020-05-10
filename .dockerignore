@@ -31,3 +31,7 @@ training_checkpoints/*
 extra
 scripts_to_tfrecords/*
 scripts_to_tfrecords
+training_checkpoints_SGD/*
+training_checkpoints_SGD
+logs_SGD/*
+logs_SGD

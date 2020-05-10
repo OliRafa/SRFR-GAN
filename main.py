@@ -13,7 +13,6 @@ from tensorflow.keras.mixed_precision import experimental as mixed_precision
 from models.discriminator import DiscriminatorNetwork
 from models.srfr import SRFR
 from training.train import (
-    adjust_learning_rate,
     generate_num_epochs,
     Train,
 )
@@ -68,13 +67,6 @@ def main():
         BATCH_SIZE,
     )
 
-    learning_rate = tf.Variable(
-        train_settings['learning_rate'],
-        trainable=False,
-        dtype=tf.float32,
-        name='learning_rate'
-    )
-
     with strategy.scope():
         srfr_model = SRFR(
             num_filters=network_settings['num_filters'],
@@ -89,15 +81,19 @@ def main():
         )
         sr_discriminator_model = DiscriminatorNetwork()
 
-        srfr_optimizer = keras.optimizers.SGD(
-            learning_rate=learning_rate,
-            momentum=train_settings['momentum']
+        srfr_optimizer = keras.optimizers.Adam(
+            learning_rate=train_settings['learning_rate'],
+            beta_1=train_settings['momentum'],
+            name='adam_srfr',
         )
-        srfr_optimizer = mixed_precision.LossScaleOptimizer(srfr_optimizer,
-                                                        loss_scale='dynamic')
-        discriminator_optimizer = keras.optimizers.SGD(
-            learning_rate=learning_rate,
-            momentum=train_settings['momentum']
+        srfr_optimizer = mixed_precision.LossScaleOptimizer(
+            srfr_optimizer,
+            loss_scale='dynamic',
+        )
+        discriminator_optimizer = keras.optimizers.Adam(
+            learning_rate=train_settings['learning_rate'],
+            beta_1=train_settings['momentum'],
+            name='adam_discriminator',
         )
         discriminator_optimizer = mixed_precision.LossScaleOptimizer(
             discriminator_optimizer, loss_scale='dynamic')
@@ -115,7 +111,6 @@ def main():
         sr_discriminator_model=sr_discriminator_model,
         srfr_optimizer=srfr_optimizer,
         discriminator_optimizer=discriminator_optimizer,
-        learning_rate=learning_rate
     )
     manager = tf.train.CheckpointManager(
         checkpoint,
@@ -170,11 +165,6 @@ def main():
                     discriminator_loss,
                     step=epoch,
                 )
-                tf.summary.scalar(
-                    'learning_rate_per_epoch',
-                    learning_rate.read_value(),
-                    step=epoch
-                )
                 tf.summary.scalar('training_time_per_epoch', elapsed_time,
                                   step=epoch)
             LOGGER.info((f' Epoch {epoch}, SRFR Loss: {srfr_loss:.3f},'
@@ -182,12 +172,6 @@ def main():
 
             train.save_model()
 
-            learning_rate.assign(
-                adjust_learning_rate(
-                    learning_rate.read_value(),
-                    int(checkpoint.epoch),
-                )
-            )
             checkpoint.epoch.assign_add(1)
 
 
