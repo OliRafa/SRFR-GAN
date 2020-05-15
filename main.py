@@ -7,6 +7,7 @@ from functools import partial
 from pathlib import Path
 
 import tensorflow as tf
+#tf.debugging.set_log_device_placement(True)
 from tensorflow import keras
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
@@ -129,13 +130,13 @@ def main():
     )
 
     LOGGER.info(' -------- Starting Training --------')
-    checkpoint.restore(manager.latest_checkpoint)
-    if manager.latest_checkpoint:
-        LOGGER.info(f' Restored from {manager.latest_checkpoint}')
-    else:
-        LOGGER.info(' Initializing from scratch.')
-
     with strategy.scope():
+        checkpoint.restore(manager.latest_checkpoint)
+        if manager.latest_checkpoint:
+            LOGGER.info(f' Restored from {manager.latest_checkpoint}')
+        else:
+            LOGGER.info(' Initializing from scratch.')
+
         for epoch in range(int(checkpoint.epoch), EPOCHS + 1):
             timing.start(Train.__name__)
             LOGGER.info(f' Start of epoch {epoch}')
