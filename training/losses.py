@@ -114,12 +114,6 @@ class Loss():
                                               discriminator_gt_predictions)
         l1_loss = self.weight * compute_l1_loss(super_resolution, ground_truth)
 
-        #self.LOGGER.debug('perceptual_loss')
-        #self.LOGGER.debug(perceptual_loss)
-        #self.LOGGER.debug('generator_loss')
-        #self.LOGGER.debug(generator_loss)
-        #self.LOGGER.debug('l1_loss')
-        #self.LOGGER.debug(l1_loss)
         return perceptual_loss + generator_loss + l1_loss
 
     def _create_dense_layer(self, _, normalized_weights, num_classes):
@@ -151,18 +145,7 @@ class Loss():
 
         ### Returns
             The loss value."""
-        fc_weights = self.srfr_model.get_weights(net_type)
-        normalized_weights = tf.Variable(
-            normalize(fc_weights, name='weights_normalization'),
-            aggregation=tf.VariableAggregation.NONE,
-        )
-        normalized_embeddings = normalize(
-            embeddings, axis=1, name='embeddings_normalization') * self.scale
-        replica = tf.distribute.get_replica_context()
-        dense_layer = replica.merge_call(self._create_dense_layer,
-                                         args=(normalized_weights, num_classes))
-        original_target_embeddings = dense_layer(normalized_embeddings)
-
+        original_target_embeddings = embeddings
         cos_theta = original_target_embeddings / self.scale
         theta = tf.acos(cos_theta)
 
@@ -174,7 +157,8 @@ class Loss():
         difference = marginal_target_embeddings - original_target_embeddings
         new_one_hot = one_hot_vector * difference
 
-        softmax_output = apply_softmax(original_target_embeddings + new_one_hot)
+        softmax_output = apply_softmax(original_target_embeddings +
+                                       new_one_hot)
         return self._compute_categorical_crossentropy(softmax_output,
                                                       one_hot_vector)
 
@@ -218,8 +202,6 @@ class Loss():
             synthetic_face_recognition[1],
             synthetic_face_recognition[2],
         )
-        #self.LOGGER.debug('arcloss')
-        #self.LOGGER.debug(synthetic_face_recognition_loss)
         if natural_face_recognition:
             natural_face_recognition_loss = self._compute_arcloss(
                 natural_face_recognition[0],

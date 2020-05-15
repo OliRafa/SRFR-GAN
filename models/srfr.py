@@ -5,6 +5,7 @@ from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 from models.generator import GeneratorNetwork
 from models.resnet import ResNet
+from training.metrics import normalize
 
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)
@@ -24,9 +25,11 @@ class SRFR(Model):
             num_classes_syn: int = None,
             both: bool = False,
             num_classes_nat: int = None,
+            scale: int = 64,
         ):
         super(SRFR, self).__init__()
         self._training = training
+        self.scale = scale
         if both:
             self._natural_input = Conv2D(
                 input_shape=input_shape,
@@ -68,7 +71,8 @@ class SRFR(Model):
                     name='fully_connected_to_softmax_crossentropy_nat',
                 )
                 self._fc_classification_nat.build(tf.TensorShape([None, 512]))
-            self._fc_classification_syn = Dense(
+                self.net_type = 'nat'
+            self._fc_classification_syn: Dense = Dense(
                 input_shape=(categories,),
                 units=num_classes_syn,
                 activation=None,
@@ -88,15 +92,34 @@ class SRFR(Model):
         )
         return super_resolution_image, embeddings
 
-    @tf.function
+    def _calculate_normalized_embeddings(self, embeddings,
+                                         net_type: str = 'syn'):
+        fc_weights = self.get_weights(net_type)
+        normalized_weights = tf.Variable(
+            normalize(fc_weights, name='weights_normalization'),
+            aggregation=tf.VariableAggregation.NONE,
+        )
+        normalized_embeddings = normalize(
+            embeddings, axis=1, name='embeddings_normalization') * self.scale
+        replica = tf.distribute.get_replica_context()
+        replica.merge_call(self.set_weights,
+                           args=(normalized_weights, net_type))
+        return self.call_fc_classification(normalized_embeddings, net_type)
+
     def _call_training(self, synthetic_images, natural_images=None):
         synthetic_outputs = self._synthetic_input(synthetic_images)
         synthetic_sr_images = self._super_resolution(synthetic_outputs)
         synthetic_embeddings = self._face_recognition(synthetic_sr_images)
+        synthetic_embeddings = self._calculate_normalized_embeddings(
+            synthetic_embeddings
+        )
         if natural_images:
             natural_outputs = self._natural_input(natural_images)
             natural_sr_images = self._super_resolution(natural_outputs)
             natural_embeddings = self._face_recognition(natural_sr_images)
+            natural_embeddings = self._calculate_normalized_embeddings(
+                natural_embeddings
+            )
             return (
                 synthetic_sr_images,
                 synthetic_embeddings,
@@ -117,11 +140,11 @@ class SRFR(Model):
             return self._fc_classification_nat.get_weights()
         return self._fc_classification_syn.get_weights()
 
-    def set_weights(self, weights, net_type: str = 'syn') -> None:
+    def set_weights(self, _, weights, net_type: str = 'syn') -> None:
         if net_type == 'nat':
-            self._fc_classification_nat.set_weights(weights)
+            self._fc_classification_nat.set_weights([weights.read_value()])
         else:
-            self._fc_classification_syn.set_weights(weights)
+            self._fc_classification_syn.set_weights([weights.read_value()])
 
     def call_fc_classification(self, input, net_type: str = 'syn'):
         if net_type == 'nat':
