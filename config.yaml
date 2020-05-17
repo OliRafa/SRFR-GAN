@@ -20,7 +20,7 @@ train:
   momentum: 0.9
   weight_decay: 5.0e-4
   iterations: 400_000
-  super_resolution_weight: 0.1
+  super_resolution_weight: 1.e-3
   scale: 64
   angular_margin: 0.5
 
