@@ -31,5 +31,5 @@ dataset:
     path: "./datasets/LFW/Raw_Low_Resolution.tfrecords"
   
   vggface2_lr:
-    train_path: "./datasets/VGGFace2/Train_Low_Resolution_Raw.tfrecords"
-    test_path: "./datasets/VGGFace2/Test_Low_Resolution_Raw.tfrecords"
+    train_path: "./datasets/VGGFace2/Train_Low_Resolution_50k.tfrecords"
+    test_path: "./datasets/VGGFace2/Test_Low_Resolution_50k.tfrecords"
