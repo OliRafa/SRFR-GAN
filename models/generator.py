@@ -3,10 +3,10 @@ from tensorflow.keras import Model, Sequential
 from tensorflow.keras.layers import (
     Add,
     Conv2D,
-    LeakyReLU,
     UpSampling2D
 )
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
+from tensorflow_addons.activations import mish
 
 policy = mixed_precision.Policy('mixed_float16')
 mixed_precision.set_policy(policy)
@@ -33,7 +33,7 @@ class ResidualDenseBlock(Model):
             kernel_size=(3, 3),
             strides=(1, 1),
             padding='same',
-            activation=LeakyReLU(alpha=0.2),
+            activation=mish,
             kernel_initializer='he_uniform',
         )
         self._conv2 = Conv2D(
@@ -41,7 +41,7 @@ class ResidualDenseBlock(Model):
             kernel_size=(3, 3),
             strides=(1, 1),
             padding='same',
-            activation=LeakyReLU(alpha=0.2),
+            activation=mish,
             kernel_initializer='he_uniform',
         )
         self._conv3 = Conv2D(
@@ -49,7 +49,7 @@ class ResidualDenseBlock(Model):
             kernel_size=(3, 3),
             strides=(1, 1),
             padding='same',
-            activation=LeakyReLU(alpha=0.2),
+            activation=mish,
             kernel_initializer='he_uniform',
         )
         self._conv4 = Conv2D(
@@ -57,7 +57,7 @@ class ResidualDenseBlock(Model):
             kernel_size=(3, 3),
             strides=(1, 1),
             padding='same',
-            activation=LeakyReLU(alpha=0.2),
+            activation=mish,
             kernel_initializer='he_uniform',
         )
         self._conv5 = Conv2D(
@@ -81,6 +81,7 @@ class ResidualDenseBlock(Model):
             -1,
         ))
         return output5 * self._residual_scailing + input_tensor
+
 
 class RRDB(Model):
     """.
@@ -108,6 +109,7 @@ class RRDB(Model):
         output = self._rdb_3(output)
 
         return output * self._residual_scailing + input_tensor
+
 
 class GeneratorNetwork(Model):
     """.
@@ -147,7 +149,7 @@ class GeneratorNetwork(Model):
             strides=1,
             padding='same',
             name='conv_upsampling_1',
-            activation=LeakyReLU(alpha=0.2),
+            activation=mish,
             kernel_initializer='he_uniform',
         )
         self._upsampling_2 = UpSampling2D(size=(2, 2), interpolation='nearest')
@@ -157,7 +159,7 @@ class GeneratorNetwork(Model):
             strides=1,
             padding='same',
             name='conv_upsampling_2',
-            activation=LeakyReLU(alpha=0.2),
+            activation=mish,
             kernel_initializer='he_uniform',
         )
         self._high_resolution_conv = Conv2D(
@@ -166,7 +168,7 @@ class GeneratorNetwork(Model):
             strides=1,
             padding='same',
             name='conv_high_resolution',
-            activation=LeakyReLU(alpha=0.2),
+            activation=mish,
             kernel_initializer='he_uniform',
         )
         self._last_conv = Conv2D(
