@@ -213,3 +213,5 @@ logs/*
 train_logs.txt
 datasets/*
 training_checkpoints/*
+temp/*
+output.log

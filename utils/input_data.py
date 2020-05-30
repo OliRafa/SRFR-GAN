@@ -303,7 +303,7 @@ class InputData():
             decoding_function,
         ):
         self._logger.info(f' Loading from {dataset_paths}.')
-        dataset = tf.data.TFRecordDataset(dataset_paths, num_parallel_reads=4)
+        dataset = tf.data.TFRecordDataset(dataset_paths)
         dataset = dataset.map(
             decoding_function,
             num_parallel_calls=AUTOTUNE,
@@ -385,7 +385,8 @@ class InputData():
      dataset_length) - dataset Tensor, number of classes and dataset length.
         """
         self._sample_ids = sample_ids
-        self._overlaps = self._get_overlapping_identities(dataset_name) if remove_overlaps else remove_overlaps
+        self._overlaps = (self._get_overlapping_identities(dataset_name) if
+                          remove_overlaps else remove_overlaps)
 
         if mode == 'both':
             train_dataset = self._load_from_tfrecords(

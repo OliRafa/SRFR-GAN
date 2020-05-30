@@ -35,3 +35,5 @@ training_checkpoints_SGD/*
 training_checkpoints_SGD
 logs_SGD/*
 logs_SGD
+train_logs.txt
+temp/*

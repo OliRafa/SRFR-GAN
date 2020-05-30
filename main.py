@@ -7,6 +7,15 @@ from functools import partial
 from pathlib import Path
 
 import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print('set_memory_growth ok!')
+    except RuntimeError as e:
+        print('set_memory_growth failed!')
+        print(str(e))
 #tf.debugging.set_log_device_placement(True)
 from tensorflow import keras
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
@@ -38,23 +47,27 @@ def main():
         ['network', 'train', 'preprocess'])
 
     strategy = tf.distribute.MirroredStrategy()
+    BATCH_SIZE = train_settings['batch_size'] * strategy.num_replicas_in_sync
+    temp_folder = Path.cwd().joinpath('temp', 'synthetic_ds')
+
     LOGGER.info(' -------- Importing Datasets --------')
+
     vgg_dataset = VggFace2(mode='concatenated')
     synthetic_dataset = vgg_dataset.get_dataset()
     synthetic_dataset = vgg_dataset.augment_dataset()
     synthetic_dataset = vgg_dataset.normalize_dataset()
-    synthetic_dataset = synthetic_dataset.cache()
-    synthetic_dataset_len = vgg_dataset.get_dataset_size()
+    synthetic_dataset = synthetic_dataset.cache(str(temp_folder))
+    #synthetic_dataset_len = vgg_dataset.get_dataset_size()
+    synthetic_dataset_len = 3055527
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
-    BATCH_SIZE = train_settings['batch_size'] * strategy.num_replicas_in_sync
     synthetic_dataset = synthetic_dataset.shuffle(
-        buffer_size=5_120
-    ).repeat().batch(BATCH_SIZE).prefetch(AUTOTUNE)
+        buffer_size=2_048
+    ).repeat().batch(BATCH_SIZE).prefetch(1)
 
-    lfw_dataset = LFW()
-    test_dataset = lfw_dataset.get_dataset()
-    test_dataset = test_dataset.cache().prefetch(AUTOTUNE)
-    lfw_pairs = lfw_dataset.load_lfw_pairs()
+    #lfw_dataset = LFW()
+    #test_dataset = lfw_dataset.get_dataset()
+    #test_dataset = test_dataset.cache().prefetch(AUTOTUNE)
+    #lfw_pairs = lfw_dataset.load_lfw_pairs()
 
     synthetic_dataset = strategy.experimental_distribute_dataset(
         synthetic_dataset)
@@ -152,8 +165,10 @@ def main():
                 synthetic_num_classes,
                 # natural_ds,
                 # num_classes_natural,
-                test_dataset,
-                lfw_pairs,
+                #test_dataset,
+                #lfw_pairs,
+                None,
+                None,
                 sr_weight=train_settings['super_resolution_weight'],
                 scale=train_settings['scale'],
                 margin=train_settings['angular_margin'],

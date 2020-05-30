@@ -20,5 +20,6 @@ ADD . /app
 VOLUME /app/datasets
 VOLUME /app/logs
 VOLUME /app/training_checkpoints
+VOLUME /app/temp
 
 CMD ["python3", "main.py"]

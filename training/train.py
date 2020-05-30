@@ -136,6 +136,7 @@ class Train():
         discriminator_losses = []
         for step, (synthetic_images, groud_truth_images,
                    synthetic_classes) in enumerate(dataset, start=1):
+            tf.summary.trace_on(graph=True, profiler=True)
             (srfr_loss, discriminator_loss,
              super_resolution_images) = self.strategy.experimental_run_v2(
                  self._train_step_synthetic_only,
@@ -166,8 +167,8 @@ class Train():
                                super_resolution_images, step_batch)
             self.checkpoint.step.assign_add(1)
 
-            if step % 5000 == 0:
-                self._validate_on_lfw(test_dataset, lfw_pairs)
+            #if step % 5000 == 0:
+            #    self._validate_on_lfw(test_dataset, lfw_pairs)
 
         return (
             train_loss_function(srfr_losses),
@@ -313,7 +314,7 @@ class Train():
             srfr_scaled_loss = self.srfr_optimizer.get_scaled_loss(srfr_loss)
             discriminator_scaled_loss = self.discriminator_optimizer.\
                 get_scaled_loss(discriminator_loss)
-
+        
         srfr_grads = srfr_tape.gradient(srfr_scaled_loss,
                                         self.srfr_model.trainable_weights)
         discriminator_grads = discriminator_tape.gradient(
