@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
+from tqdm import tqdm
 import tensorflow as tf
 import yaml
 
@@ -12,6 +13,7 @@ import yaml
 # Terminar checagem do get_lfw
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
+
 
 class InputData():
     """
@@ -409,6 +411,7 @@ class InputData():
     def get_logger(self):
         return self._logger
 
+
 class LFW(InputData):
     def __init__(self):
         super().__init__()
@@ -439,6 +442,18 @@ class LFW(InputData):
             ),
             num_parallel_calls=AUTOTUNE,
         )
+        pairs = self.load_lfw_pairs()
+        with tf.device('/GPU:0'):
+            (left_pairs, left_aug_pairs, right_pairs, right_aug_pairs,
+             is_same_list) = self._generate_dataset(self._dataset, pairs)
+        with tf.device('/CPU:0'):
+            left_pairs = tf.data.Dataset.from_tensor_slices(left_pairs)
+            left_aug_pairs = tf.data.Dataset.from_tensor_slices(left_aug_pairs)
+            right_pairs = tf.data.Dataset.from_tensor_slices(right_pairs)
+            right_aug_pairs = tf.data.Dataset.from_tensor_slices(right_aug_pairs)
+
+        self._dataset = (left_pairs, left_aug_pairs, right_pairs,
+                         right_aug_pairs, is_same_list)
         return self._dataset
 
     def get_number_of_classes(self):
@@ -493,6 +508,39 @@ class LFW(InputData):
             num_parallel_calls=AUTOTUNE,
         )
 
+    def _generate_dataset(self, dataset, pairs):
+        is_same_list = []
+        left_pairs: tf.data.Dataset = []
+        left_aug_pairs: tf.data.Dataset = []
+        right_pairs: tf.data.Dataset = []
+        right_aug_pairs: tf.data.Dataset = []
+        #i = 0
+        for id_01, id_02, is_same in tqdm(pairs):
+            left, left_augmented = next(iter(
+                dataset.filter(lambda x, y, z: tf.equal(z, id_01)).map(
+                    lambda image, augmented_image, label: (image,
+                                                           augmented_image)
+                )
+            ))
+            right, right_augmented = next(iter(
+                dataset.filter(lambda x, y, z: tf.equal(z, id_02)).map(
+                    lambda image, augmented_image, label: (image,
+                                                           augmented_image)
+                )
+            ))
+            left_pairs.append(left)
+            left_aug_pairs.append(left_augmented)
+            right_pairs.append(right)
+            right_aug_pairs.append(right_augmented)
+            is_same_list.append(is_same)
+            
+            #if i == 305:
+            #    break
+            #i += 1
+
+        return (left_pairs, left_aug_pairs, right_pairs, right_aug_pairs,
+                np.array(is_same_list, dtype=np.int16).astype(np.bool))
+
     def load_lfw_pairs(self):
         """Loads the Labeled Faces in the Wild pairs from file.
         Output array has only the sample_id, not giving the full path or class_id.
@@ -507,8 +555,9 @@ class LFW(InputData):
                 pair = line.strip().split()
                 _, id_01 = InputData.split_path(pair[0])
                 _, id_02 = InputData.split_path(pair[1])
-                pairs.append([id_01, id_02, pair[2]])
+                pairs.append([id_01, id_02, int(pair[2])])
         return np.array(pairs)
+
 
 class VggFace2(InputData):
     def __init__(
@@ -624,6 +673,7 @@ class VggFace2(InputData):
             num_parallel_calls=AUTOTUNE,
         )
 
+
 def parseConfigsFile(
         settings_list: List[str] = None,
     ) -> Union[Dict, List[Dict]]:
@@ -648,34 +698,13 @@ def parseConfigsFile(
 
     return settings
 
+
 def load_json(path):
     with Path(path).open('r') as json_file:
         return json.load(json_file)
+
 
 def load_resnet_config() -> List[Dict]:
     path = Path().cwd().joinpath('models', 'resnet_config.txt')
     configs = load_json(path)
     return configs['network_config'], configs['layer_config']
-#def resolvendo_pau():
-#    overlaps = InputData()._get_overlapping_identities('VGGFace2')
-#    train_list = Path('/mnt/hdd_raid/datasets/VGGFace2_LR/Images/train')
-#    train_list = list(train_list.glob('*'))
-#    test_list = Path('/mnt/hdd_raid/datasets/VGGFace2_LR/Images/test')
-#    test_list = list(test_list.glob('*'))
-#    print(f'len overlaps: {len(overlaps)}')
-#    print(f'train glob: {len(train_list)}')
-#    print(f'test glob: {len(test_list)}')
-#
-#    train_set = set({p.name for p in train_list})
-#    test_set = set({p.name for p in test_list})
-#
-#    train = train_set - overlaps
-#    print(f'train: {len(train)}')
-#
-#    test = test_set - overlaps
-#    print(f'test: {len(test)}')
-#
-#
-#
-#if __name__ == "__main__":
-#    resolvendo_pau()

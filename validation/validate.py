@@ -35,7 +35,8 @@ def _get_embeddings(model, dataset, pairs):
     return np.array(embeddings), is_same_list
 
 
-def validate_model_on_lfw(model, dataset, pairs) -> float:
+def validate_model_on_lfw(strategy, model, left_pairs, left_aug_pairs,
+                          right_pairs, right_aug_pairs, is_same_list) -> float:
     """Validates the given model on the Labeled Faces in the Wild dataset.
 
     ### Parameters

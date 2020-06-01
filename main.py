@@ -52,13 +52,20 @@ def main():
     ).repeat().batch(BATCH_SIZE).prefetch(AUTOTUNE)
 
     lfw_dataset = LFW()
-    test_dataset = lfw_dataset.get_dataset()
-    test_dataset = test_dataset.cache().prefetch(AUTOTUNE)
-    lfw_pairs = lfw_dataset.load_lfw_pairs()
+    (left_pairs, left_aug_pairs, right_pairs, right_aug_pairs,
+     is_same_list) = lfw_dataset.get_dataset()
+    left_pairs = left_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+    left_aug_pairs = left_aug_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+    right_pairs = right_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+    right_aug_pairs = right_aug_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
 
+    # Using `distribute_dataset` to distribute the batches across the GPUs
     synthetic_dataset = strategy.experimental_distribute_dataset(
         synthetic_dataset)
-    # test_dataset = strategy.experimental_distribute_dataset(test_dataset)
+    left_pairs = strategy.experimental_distribute_dataset(left_pairs)
+    left_aug_pairs = strategy.experimental_distribute_dataset(left_aug_pairs)
+    right_pairs = strategy.experimental_distribute_dataset(right_pairs)
+    right_aug_pairs = strategy.experimental_distribute_dataset(right_aug_pairs)
 
     LOGGER.info(' -------- Creating Models and Optimizers --------')
 
