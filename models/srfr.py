@@ -1,7 +1,8 @@
 import tensorflow as tf
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Conv2D, Dense, LeakyReLU
+from tensorflow.keras.layers import Conv2D, Dense
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
+from tensorflow_addons.activations import mish
 
 from models.generator import GeneratorNetwork
 from models.resnet import ResNet
@@ -38,7 +39,7 @@ class SRFR(Model):
                 strides=1,
                 padding='same',
                 name='natural_input',
-                activation=LeakyReLU(alpha=0.2),
+                activation=mish,
             )
         self._synthetic_input = Conv2D(
             input_shape=input_shape,
@@ -47,7 +48,7 @@ class SRFR(Model):
             strides=1,
             padding='same',
             name='synthetic_input',
-            activation=LeakyReLU(alpha=0.2),
+            activation=mish,
         )
         self._super_resolution = GeneratorNetwork(
             num_filters,
