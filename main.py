@@ -51,13 +51,18 @@ def main():
         buffer_size=5_120
     ).repeat().batch(BATCH_SIZE).prefetch(AUTOTUNE)
 
+    lfw_path = Path.cwd().joinpath('temp', 'lfw')
     lfw_dataset = LFW()
     (left_pairs, left_aug_pairs, right_pairs, right_aug_pairs,
      is_same_list) = lfw_dataset.get_dataset()
-    left_pairs = left_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
-    left_aug_pairs = left_aug_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
-    right_pairs = right_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
-    right_aug_pairs = right_aug_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+    left_pairs = left_pairs.batch(BATCH_SIZE).cache(
+        str(lfw_path.joinpath('left'))).prefetch(AUTOTUNE)
+    left_aug_pairs = left_aug_pairs.batch(BATCH_SIZE).cache(
+        str(lfw_path.joinpath('left_aug'))).prefetch(AUTOTUNE)
+    right_pairs = right_pairs.batch(BATCH_SIZE).cache(
+        str(lfw_path.joinpath('right'))).prefetch(AUTOTUNE)
+    right_aug_pairs = right_aug_pairs.batch(BATCH_SIZE).cache(
+        str(lfw_path.joinpath('right_aug'))).prefetch(AUTOTUNE)
 
     # Using `distribute_dataset` to distribute the batches across the GPUs
     synthetic_dataset = strategy.experimental_distribute_dataset(

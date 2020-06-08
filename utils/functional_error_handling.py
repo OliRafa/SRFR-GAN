@@ -4,6 +4,7 @@ Works encapsulating any result of a function inside the Result class, and
 decorating the next function to be called with the bind decorator."""
 from functools import namedtuple, wraps
 
+
 class Result():
     """Base class for result output for any function within a pipeline.
 
@@ -41,6 +42,7 @@ class Result():
             return self._payload, self._args
         return self._payload
 
+
 def bind(function):
     """Decorator for function error handling within a pipeline.
 
@@ -52,9 +54,9 @@ def bind(function):
     def _bind(Result, *args, **kwargs):
         """Inner class to handle the switch case of result."""
         if Result.get_result() == 'Success':
-            #print(*Result.get_payload())
             return function(*Result.get_payload(), *args, **kwargs)
         return Result
     return _bind
+
 
 ImageContainer = namedtuple('ImageContainer', ('image', 'image_path'))

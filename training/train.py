@@ -176,7 +176,9 @@ class Train():
             self.checkpoint.step.assign_add(1)
 
             if step % 5000 == 0:
-                self._validate_on_lfw(test_dataset, lfw_pairs)
+                self._validate_on_lfw(left_pairs, left_aug_pairs, right_pairs,
+                                      right_aug_pairs, is_same_list,
+                                      batch_size)
 
         return (
             train_loss_function(srfr_losses),
