@@ -7,6 +7,7 @@ from functools import partial
 from pathlib import Path
 
 import tensorflow as tf
+from tensorflow_addons.optimizers import NovoGrad
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
     try:
@@ -107,19 +108,23 @@ def main():
         )
         sr_discriminator_model = DiscriminatorNetwork()
 
-        srfr_optimizer = keras.optimizers.Adam(
+        srfr_optimizer = NovoGrad(
             learning_rate=train_settings['learning_rate'],
             beta_1=train_settings['momentum'],
-            name='adam_srfr',
+            beta_2=train_settings['beta_2'],
+            weight_decay=train_settings['weight_decay'],
+            name='novograd_srfr',
         )
         srfr_optimizer = mixed_precision.LossScaleOptimizer(
             srfr_optimizer,
             loss_scale='dynamic',
         )
-        discriminator_optimizer = keras.optimizers.Adam(
+        discriminator_optimizer = NovoGrad(
             learning_rate=train_settings['learning_rate'],
             beta_1=train_settings['momentum'],
-            name='adam_discriminator',
+            beta_2=train_settings['beta_2'],
+            weight_decay=train_settings['weight_decay'],
+            name='novograd_discriminator',
         )
         discriminator_optimizer = mixed_precision.LossScaleOptimizer(
             discriminator_optimizer, loss_scale='dynamic')

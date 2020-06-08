@@ -102,6 +102,12 @@ class Train():
             (srfr_loss, discriminator_loss) The loss value for SRFR and
             Discriminator networks.
         """
+        batch_size = tf.constant(batch_size, dtype=tf.float32)
+        num_classes_synthetic = tf.constant(num_classes_synthetic,
+                                            dtype=tf.int32)
+        sr_weight = tf.constant(sr_weight, dtype=tf.float32)
+        scale = tf.constant(scale, dtype=tf.float32)
+        margin = tf.constant(margin, dtype=tf.float32)
         self.losses = Loss(self.srfr_model, batch_size, sr_weight,
                            scale, margin)
         #if natural_dataset:
@@ -143,38 +149,27 @@ class Train():
             ) -> float:
         srfr_losses = []
         discriminator_losses = []
-        for step, (synthetic_images, groud_truth_images,
-                   synthetic_classes) in enumerate(dataset, start=1):
-            tf.summary.trace_on(graph=True, profiler=True)
-            (srfr_loss, discriminator_loss,
-             super_resolution_images) = self.strategy.experimental_run_v2(
-                 self._train_step_synthetic_only,
-                 args=(
-                     synthetic_images,
-                     groud_truth_images,
-                     synthetic_classes,
-                     num_classes,
-                 ),
-             )
-            srfr_loss = self.strategy.reduce(tf.distribute.ReduceOp.MEAN,
-                                             srfr_loss, None)
-            discriminator_loss = self.strategy.reduce(
-                tf.distribute.ReduceOp.MEAN,
-                discriminator_loss,
-                None,
-            )
-            srfr_losses.append(srfr_loss)
-            discriminator_losses.append(discriminator_loss)
+        with self.strategy.scope():
+            for step, (synthetic_images, groud_truth_images,
+                       synthetic_classes) in enumerate(dataset, start=1):
+                srfr_loss, discriminator_loss, super_resolution_images = \
+                    self._train_step_synthetic_only(synthetic_images,
+                                                    groud_truth_images,
+                                                    synthetic_classes,
+                                                    num_classes)
+                srfr_losses.append(srfr_loss)
+                discriminator_losses.append(discriminator_loss)
 
-            if step % 1000 == 0:
-                step_batch = 'batch'
-                self.save_model()
-            else:
-                step_batch = 'step'
-            self._save_metrics(step, srfr_loss, discriminator_loss, batch_size,
-                               synthetic_images, groud_truth_images,
-                               super_resolution_images, step_batch)
-            self.checkpoint.step.assign_add(1)
+                if step % 1000 == 0:
+                    step_batch = 'batch'
+                    self.save_model()
+                else:
+                    step_batch = 'step'
+                self._save_metrics(step, srfr_loss, discriminator_loss,
+                                   batch_size,
+                                   synthetic_images, groud_truth_images,
+                                   super_resolution_images, step_batch)
+                self.checkpoint.step.assign_add(1)
 
             if step % 5000 == 0:
                 self._validate_on_lfw(left_pairs, left_aug_pairs, right_pairs,
@@ -279,30 +274,9 @@ class Train():
             f' Equal Error Rate (EER): {eer:.3f} -'
         ))
 
-    def _train_step_synthetic_only(
-            self,
-            low_resolution_batch,
-            groud_truth_batch,
-            ground_truth_classes,
-            num_classes,
-        ):
-        """Does a training step
-
-        Parameters
-        ----------
-            model:
-            images: Batch of images for training.
-            classes: Batch of classes to compute the loss.
-            num_classes: Total number of classes in the dataset.
-            s:
-            margin:
-
-        Returns
-        -------
-            (srfr_loss, srfr_grads, discriminator_loss, discriminator_grads)
-            The loss value and the gradients for SRFR network, as well as the
-            loss value and the gradients for the Discriminative network.
-        """
+    #@tf.function
+    def _step_function(self, low_resolution_batch, groud_truth_batch,
+                       ground_truth_classes, num_classes):
         with tf.GradientTape() as srfr_tape, \
                 tf.GradientTape() as discriminator_tape:
             (super_resolution_images, embeddings) = self.srfr_model(
@@ -330,7 +304,7 @@ class Train():
             srfr_scaled_loss = self.srfr_optimizer.get_scaled_loss(srfr_loss)
             discriminator_scaled_loss = self.discriminator_optimizer.\
                 get_scaled_loss(discriminator_loss)
-        
+
         srfr_grads = srfr_tape.gradient(srfr_scaled_loss,
                                         self.srfr_model.trainable_weights)
         discriminator_grads = discriminator_tape.gradient(
@@ -345,6 +319,50 @@ class Train():
             zip(self.discriminator_optimizer.get_unscaled_gradients(
                 discriminator_grads),
                 self.discriminator_model.trainable_weights)
+        )
+        return srfr_loss, discriminator_loss, super_resolution_images
+
+    #@tf.function
+    def _train_step_synthetic_only(
+            self,
+            synthetic_images,
+            groud_truth_images,
+            synthetic_classes,
+            num_classes,
+        ):
+        """Does a training step
+
+        Parameters
+        ----------
+            model:
+            images: Batch of images for training.
+            classes: Batch of classes to compute the loss.
+            num_classes: Total number of classes in the dataset.
+            s:
+            margin:
+
+        Returns
+        -------
+            (srfr_loss, srfr_grads, discriminator_loss, discriminator_grads)
+            The loss value and the gradients for SRFR network, as well as the
+            loss value and the gradients for the Discriminative network.
+        """
+        srfr_loss, discriminator_loss, super_resolution_images = \
+            self.strategy.experimental_run_v2(
+                self._step_function,
+                args=(
+                    synthetic_images,
+                    groud_truth_images,
+                    synthetic_classes,
+                    num_classes,
+                ),
+            )
+        srfr_loss = self.strategy.reduce(tf.distribute.ReduceOp.MEAN,
+                                         srfr_loss, None)
+        discriminator_loss = self.strategy.reduce(
+            tf.distribute.ReduceOp.MEAN,
+            discriminator_loss,
+            None,
         )
         return srfr_loss, discriminator_loss, super_resolution_images
 

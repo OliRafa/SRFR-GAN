@@ -9,10 +9,10 @@ from tensorflow.keras.layers import (
     Dropout,
     Flatten,
     MaxPool2D,
-    ReLU,
     ZeroPadding2D
 )
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
+from tensorflow_addons.activations import mish
 
 from utils.input_data import load_resnet_config
 
@@ -36,6 +36,7 @@ mixed_precision.set_policy(policy)
 #        x = self._conv1(input)
 #        x = self._bn1(x)
 #        return x
+
 
 class Shortcut(Model):
     def __init__(self, filter, stride, trainable=False):
@@ -61,7 +62,8 @@ class Bottleneck(Model):
         first_conv_layer: If it's the first layer of the block to be created,\
  which implies that a downsampler conv layer has to be used on the input.
     """
-    def __init__(self, filters, stride, first_conv_layer=False, trainable=False):
+    def __init__(self, filters, stride, first_conv_layer=False,
+                 trainable=False):
         super(Bottleneck, self).__init__()
         self._trainable = trainable
         if first_conv_layer:
@@ -83,7 +85,7 @@ class Bottleneck(Model):
             strides=(1, 1)
         )
         self._bn1 = BatchNormalization(trainable=self._trainable)
-        self._relu1 = ReLU()
+        self._activation1 = mish
         self._conv2 = Conv2D(
             filters=filters[1],
             kernel_size=(3, 3),
@@ -91,7 +93,7 @@ class Bottleneck(Model):
             padding='same'
         )
         self._bn2 = BatchNormalization(trainable=self._trainable)
-        self._relu2 = ReLU()
+        self._activation2 = mish
         self._conv3 = Conv2D(
             filters=filters[2],
             kernel_size=(1, 1),
@@ -107,14 +109,14 @@ class Bottleneck(Model):
 
         output = self._conv1(input_tensor)
         output = self._bn1(output)
-        output = self._relu1(output)
+        output = self._activation1(output)
         output = self._conv2(output)
         output = self._bn2(output)
-        output = self._relu2(output)
+        output = self._activation2(output)
         output = self._conv3(output)
         output = self._bn3(output)
         output = Add()([output, residual])
-        return ReLU()(output)
+        return mish(output)
 
 
 class ResNet(Model):
@@ -137,7 +139,7 @@ class ResNet(Model):
             filters=64,
             kernel_size=(7, 7),
             strides=2,
-            activation='relu',
+            activation=mish,
             padding='valid',
             name='conv_1'
         )

@@ -16,9 +16,11 @@ network:
 # Settings for trainnig
 train:
   batch_size: 16
-  learning_rate: 1.e-4
-  momentum: 0.99
+  learning_rate: 4.e-3
+  momentum: 0.9
+  beta_2: 0.999
   weight_decay: 5.0e-4
+  #weight_decay: 0.0
   iterations: 400_000
   super_resolution_weight: 1.e-3
   scale: 64
@@ -29,5 +31,5 @@ dataset:
     path: "./datasets/LFW/Raw_Low_Resolution.tfrecords"
   
   vggface2_lr:
-    train_path: "./datasets/VGGFace2/Train_Low_Resolution_Raw.tfrecords"
-    test_path: "./datasets/VGGFace2/Test_Low_Resolution_Raw.tfrecords"
+    train_path: "./datasets/VGGFace2/Train_Low_Resolution_50k.tfrecords"
+    test_path: "./datasets/VGGFace2/Test_Low_Resolution_50k.tfrecords"
