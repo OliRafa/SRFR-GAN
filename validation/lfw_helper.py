@@ -36,6 +36,7 @@ import numpy as np
 from sklearn.model_selection import KFold
 from scipy import interpolate
 
+
 def _calculate_accuracy(threshold, dist, actual_issame):
     predict_issame = np.less(dist, threshold)
     tp = np.sum(np.logical_and(predict_issame, actual_issame))
@@ -49,6 +50,7 @@ def _calculate_accuracy(threshold, dist, actual_issame):
     fpr = 0 if (fp + tn == 0) else float(fp) / float(fp + tn)
     acc = float(tp + tn) / dist.size
     return tpr, fpr, acc
+
 
 def _distance(embeddings1, embeddings2, distance_metric=0):
     if distance_metric == 0:
@@ -67,17 +69,18 @@ def _distance(embeddings1, embeddings2, distance_metric=0):
 
     return dist
 
+
 def _calculate_val_far(threshold, dist, actual_issame):
     predict_issame = np.less(dist, threshold)
     true_accept = np.sum(np.logical_and(predict_issame, actual_issame))
-    false_accept = np.sum(
-        np.logical_and(predict_issame, np.logical_not(actual_issame))
-    )
+    false_accept = np.sum(np.logical_and(predict_issame,
+                          np.logical_not(actual_issame)))
     n_same = np.sum(actual_issame)
     n_diff = np.sum(np.logical_not(actual_issame))
     val = float(true_accept) / float(n_same)
     far = float(false_accept) / float(n_diff)
     return val, far
+
 
 def _calculate_val(
         thresholds,
@@ -102,12 +105,14 @@ def _calculate_val(
     for fold_idx, (train_set, test_set) in enumerate(k_fold.split(indices)):
         if subtract_mean:
             mean = np.mean(
-                np.concatenate([embeddings1[train_set], embeddings2[train_set]]),
+                np.concatenate([embeddings1[train_set],
+                                embeddings2[train_set]]),
                 axis=0,
             )
         else:
             mean = 0.0
-        dist = _distance(embeddings1 - mean, embeddings2 - mean, distance_metric)
+        dist = _distance(embeddings1 - mean, embeddings2 - mean,
+                         distance_metric)
 
         # Find the threshold that gives FAR = far_target
         far_train = np.zeros(nrof_thresholds)
@@ -134,6 +139,7 @@ def _calculate_val(
     val_std = np.std(val)
     return val_mean, val_std, far_mean
 
+
 def _calculate_roc(
         thresholds,
         embeddings1,
@@ -157,12 +163,14 @@ def _calculate_roc(
     for fold_idx, (train_set, test_set) in enumerate(k_fold.split(indices)):
         if subtract_mean:
             mean = np.mean(
-                np.concatenate([embeddings1[train_set], embeddings2[train_set]]),
+                np.concatenate([embeddings1[train_set],
+                                embeddings2[train_set]]),
                 axis=0,
             )
         else:
             mean = 0.0
-        dist = _distance(embeddings1 - mean, embeddings2 - mean, distance_metric)
+        dist = _distance(embeddings1 - mean, embeddings2 - mean,
+                         distance_metric)
 
         # Find the best threshold for the fold
         acc_train = np.zeros((nrof_thresholds))
@@ -193,6 +201,7 @@ def _calculate_roc(
         fpr = np.mean(fprs, 0)
     return tpr, fpr, accuracy
 
+
 def evaluate(
         embeddings,
         actual_issame,
@@ -208,7 +217,7 @@ def evaluate(
         thresholds,
         embeddings1,
         embeddings2,
-        np.asarray(actual_issame),
+        actual_issame,
         nrof_folds=nrof_folds,
         distance_metric=distance_metric,
         subtract_mean=subtract_mean
@@ -218,7 +227,7 @@ def evaluate(
         thresholds,
         embeddings1,
         embeddings2,
-        np.asarray(actual_issame),
+        actual_issame,
         far_target=1e-3,
         nrof_folds=nrof_folds,
         distance_metric=distance_metric,

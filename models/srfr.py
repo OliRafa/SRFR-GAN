@@ -83,13 +83,13 @@ class SRFR(Model):
             self._fc_classification_syn.build(tf.TensorShape([None, 512]))
 
     @tf.function
-    def _call_evaluating(self, input_tensor):
-        outputs = self._natural_input(input_tensor)
-        outputs = self._natural_input(outputs)
+    def _call_evaluating(self, input_tensor, input_type: str = 'nat'):
+        if input_type == 'syn':
+            outputs = self._synthetic_input(input_tensor)
+        else:
+            outputs = self._natural_input(input_tensor)
         super_resolution_image = self._super_resolution(outputs)
-        embeddings, _ = self._face_recognition(
-            super_resolution_image
-        )
+        embeddings = self._face_recognition(super_resolution_image)
         return super_resolution_image, embeddings
 
     def _calculate_normalized_embeddings(self, embeddings,
@@ -129,11 +129,12 @@ class SRFR(Model):
 
         return synthetic_sr_images, synthetic_embeddings
 
-    def call(self, input_tensor_01, input_tensor_02=None):
-        if self._training:
+    def call(self, input_tensor_01, input_tensor_02=None,
+             training: bool = True, input_type: str = 'nat'):
+        if training:
             return self._call_training(input_tensor_01, input_tensor_02)
 
-        return self._call_evaluating(input_tensor_01)
+        return self._call_evaluating(input_tensor_01, input_type)
 
     def get_weights(self, net_type: str = 'syn'):
         if net_type == 'nat':

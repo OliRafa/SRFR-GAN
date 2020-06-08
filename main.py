@@ -58,20 +58,32 @@ def main():
     synthetic_dataset = vgg_dataset.normalize_dataset()
     synthetic_dataset = synthetic_dataset.cache(str(temp_folder))
     #synthetic_dataset_len = vgg_dataset.get_dataset_size()
-    synthetic_dataset_len = 3055527
+    synthetic_dataset_len = 100_000
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_dataset = synthetic_dataset.shuffle(
         buffer_size=2_048
     ).repeat().batch(BATCH_SIZE).prefetch(1)
 
-    #lfw_dataset = LFW()
-    #test_dataset = lfw_dataset.get_dataset()
-    #test_dataset = test_dataset.cache().prefetch(AUTOTUNE)
-    #lfw_pairs = lfw_dataset.load_lfw_pairs()
+    lfw_path = Path.cwd().joinpath('temp', 'lfw')
+    lfw_dataset = LFW()
+    (left_pairs, left_aug_pairs, right_pairs, right_aug_pairs,
+     is_same_list) = lfw_dataset.get_dataset()
+    left_pairs = left_pairs.batch(BATCH_SIZE).cache(
+        str(lfw_path.joinpath('left'))).prefetch(AUTOTUNE)
+    left_aug_pairs = left_aug_pairs.batch(BATCH_SIZE).cache(
+        str(lfw_path.joinpath('left_aug'))).prefetch(AUTOTUNE)
+    right_pairs = right_pairs.batch(BATCH_SIZE).cache(
+        str(lfw_path.joinpath('right'))).prefetch(AUTOTUNE)
+    right_aug_pairs = right_aug_pairs.batch(BATCH_SIZE).cache(
+        str(lfw_path.joinpath('right_aug'))).prefetch(AUTOTUNE)
 
+    # Using `distribute_dataset` to distribute the batches across the GPUs
     synthetic_dataset = strategy.experimental_distribute_dataset(
         synthetic_dataset)
-    # test_dataset = strategy.experimental_distribute_dataset(test_dataset)
+    left_pairs = strategy.experimental_distribute_dataset(left_pairs)
+    left_aug_pairs = strategy.experimental_distribute_dataset(left_aug_pairs)
+    right_pairs = strategy.experimental_distribute_dataset(right_pairs)
+    right_aug_pairs = strategy.experimental_distribute_dataset(right_aug_pairs)
 
     LOGGER.info(' -------- Creating Models and Optimizers --------')
 

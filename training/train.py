@@ -67,8 +67,11 @@ class Train():
             train_loss_function,
             synthetic_dataset,
             num_classes_synthetic: int,
-            test_dataset,
-            lfw_pairs,
+            left_pairs,
+            left_aug_pairs,
+            right_pairs,
+            right_aug_pairs,
+            is_same_list,
             sr_weight: float = 0.1,
             scale: float = 64,
             margin: float = 0.5,
@@ -119,8 +122,11 @@ class Train():
             train_loss_function,
             synthetic_dataset,
             num_classes_synthetic,
-            test_dataset,
-            lfw_pairs,
+            left_pairs,
+            left_aug_pairs,
+            right_pairs,
+            right_aug_pairs,
+            is_same_list,
         )
 
     def _train_with_synthetic_images_only(
@@ -129,8 +135,11 @@ class Train():
             train_loss_function,
             dataset,
             num_classes: int,
-            test_dataset,
-            lfw_pairs,
+            left_pairs,
+            left_aug_pairs,
+            right_pairs,
+            right_aug_pairs,
+            is_same_list,
             ) -> float:
         srfr_losses = []
         discriminator_losses = []
@@ -167,8 +176,10 @@ class Train():
                                super_resolution_images, step_batch)
             self.checkpoint.step.assign_add(1)
 
-            #if step % 5000 == 0:
-            #    self._validate_on_lfw(test_dataset, lfw_pairs)
+            if step % 5000 == 0:
+                self._validate_on_lfw(left_pairs, left_aug_pairs, right_pairs,
+                                      right_aug_pairs, is_same_list,
+                                      batch_size)
 
         return (
             train_loss_function(srfr_losses),
@@ -230,13 +241,18 @@ class Train():
         LOGGER.info((f' Saved checkpoint for epoch {int(self.checkpoint.step)}:'
                      f' {save_path}'))
 
-    def _validate_on_lfw(self, test_dataset, lfw_pairs):
+    def _validate_on_lfw(self, left_pairs, left_aug_pairs, right_pairs,
+                         right_aug_pairs, is_same_list):
         self.timing.start(validate_model_on_lfw.__name__)
         (accuracy_mean, accuracy_std, validation_rate, validation_std,
          far, auc, eer) = validate_model_on_lfw(
+             self.strategy,
              self.srfr_model,
-             test_dataset,
-             lfw_pairs,
+             left_pairs,
+             left_aug_pairs,
+             right_pairs,
+             right_aug_pairs,
+             is_same_list,
          )
         elapsed_time = self.timing.end(validate_model_on_lfw.__name__, True)
         with self.test_summary_writer.as_default():
