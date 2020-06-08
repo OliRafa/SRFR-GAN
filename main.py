@@ -59,7 +59,8 @@ def main():
     synthetic_dataset = vgg_dataset.normalize_dataset()
     synthetic_dataset = synthetic_dataset.cache(str(temp_folder))
     #synthetic_dataset_len = vgg_dataset.get_dataset_size()
-    synthetic_dataset_len = 3055527
+    #synthetic_dataset_len = 3055527
+    synthetic_dataset_len = 100_000
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_dataset = synthetic_dataset.shuffle(
         buffer_size=2_048
