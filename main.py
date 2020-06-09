@@ -180,15 +180,16 @@ def main():
                 train_loss,
                 synthetic_dataset,
                 synthetic_num_classes,
-                # natural_ds,
-                # num_classes_natural,
-                #test_dataset,
-                #lfw_pairs,
-                None,
-                None,
+                left_pairs,
+                left_aug_pairs,
+                right_pairs,
+                right_aug_pairs,
+                is_same_list,
                 sr_weight=train_settings['super_resolution_weight'],
                 scale=train_settings['scale'],
                 margin=train_settings['angular_margin'],
+                # natural_ds,
+                # num_classes_natural,
             )
             elapsed_time = timing.end(Train.__name__, True)
             with train_summary_writer.as_default():
