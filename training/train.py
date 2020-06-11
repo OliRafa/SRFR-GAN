@@ -108,7 +108,8 @@ class Train():
         sr_weight = tf.constant(sr_weight, dtype=tf.float32)
         scale = tf.constant(scale, dtype=tf.float32)
         margin = tf.constant(margin, dtype=tf.float32)
-        self.losses = Loss(self.srfr_model, batch_size, sr_weight,
+        self.losses = Loss(self.srfr_model, batch_size,
+                           self.train_summary_writer, sr_weight,
                            scale, margin)
         #if natural_dataset:
         #    return self._train_with_natural_images(
@@ -293,6 +294,7 @@ class Train():
                 discriminator_sr_predictions,
                 discriminator_gt_predictions,
                 synthetic_face_recognition,
+                self.checkpoint,
             )
             discriminator_loss = self.losses.compute_discriminator_loss(
                 discriminator_sr_predictions,

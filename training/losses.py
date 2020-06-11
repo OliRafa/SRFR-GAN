@@ -59,11 +59,13 @@ class Loss():
             self,
             srfr_model,
             batch_size: int,
+            train_summary_writer,
             weight: float = 0.1,
             scale: float = 64.0,
             margin: float = 0.5,
             ):
         self.LOGGER = logging.getLogger(__name__)
+        self.train_summary_writer = train_summary_writer
 
         self.srfr_model = srfr_model
         self.vgg = create_vgg_model()
@@ -107,12 +109,30 @@ class Loss():
                 ground_truth,
                 discriminator_sr_predictions,
                 discriminator_gt_predictions,
+                checkpoint,
             ) -> float:
         perceptual_loss = self._compute_perceptual_loss(super_resolution,
                                                         ground_truth)
         generator_loss = self._generator_loss(discriminator_sr_predictions,
                                               discriminator_gt_predictions)
         l1_loss = self.weight * compute_l1_loss(super_resolution, ground_truth)
+
+        with self.train_summary_writer.as_default():
+            tf.summary.scalar(
+                'perceptual_loss_per_step',
+                float(perceptual_loss),
+                step=checkpoint.step,
+            )
+            tf.summary.scalar(
+                'generator_loss_per_step',
+                float(generator_loss),
+                step=checkpoint.step,
+            )
+            tf.summary.scalar(
+                'l1_loss_per_step',
+                float(l1_loss),
+                step=checkpoint.step,
+            )
 
         return perceptual_loss + generator_loss + l1_loss
 
@@ -169,6 +189,7 @@ class Loss():
             discriminator_sr_predictions,
             discriminator_gt_predictions,
             synthetic_face_recognition,
+            checkpoint,
             natural_face_recognition=None,
             ) -> float:
         """Computes the Joint Loss for Super Resolution Face Recognition, using\
@@ -196,6 +217,7 @@ class Loss():
             ground_truth_images,
             discriminator_sr_predictions,
             discriminator_gt_predictions,
+            checkpoint,
         )
         synthetic_face_recognition_loss = self._compute_arcloss(
             synthetic_face_recognition[0],
@@ -212,6 +234,18 @@ class Loss():
             fr_loss = (synthetic_face_recognition_loss +
                        natural_face_recognition_loss)
             return fr_loss + self.weight * super_resolution_loss
+
+        with self.train_summary_writer.as_default():
+            tf.summary.scalar(
+                'sr_generator_loss_per_step',
+                float(super_resolution_loss),
+                step=checkpoint.step,
+            )
+            tf.summary.scalar(
+                'arcloss_per_step',
+                float(synthetic_face_recognition_loss),
+                step=checkpoint.step,
+            )
 
         return (synthetic_face_recognition_loss +
                 self.weight *
