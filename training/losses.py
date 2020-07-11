@@ -18,7 +18,6 @@ from training.metrics import (
     compute_euclidean_distance,
     compute_l1_loss,
     distributed_sum_over_batch_size,
-    normalize,
 )
 from training.vgg import create_vgg_model
 
@@ -93,6 +92,14 @@ class Loss():
         groud_truth_average = ground_truth_predictions - super_resolution_mean
         super_resolution_average = sr_predictions - groud_truth_mean
 
+        # Reshaping tensor from shape [batch_size, 1] to [1, batch_size],
+        # because with the original shape `apply_softmax` was buggy and was
+        # outputting an array of 1's like [1, 1, 1, 1, ...].
+        groud_truth_average = self.reshape_tensor_to_softmax(
+                                                        groud_truth_average)
+        super_resolution_average = self.reshape_tensor_to_softmax(
+                                                    super_resolution_average)
+
         gt_relativistic_average = self._compute_binary_crossentropy(
             tf.zeros_like(groud_truth_average),
             apply_softmax(groud_truth_average),
@@ -121,17 +128,17 @@ class Loss():
             tf.summary.scalar(
                 'perceptual_loss_per_step',
                 float(perceptual_loss),
-                step=checkpoint.step,
+                step=int(checkpoint.step),
             )
             tf.summary.scalar(
                 'generator_loss_per_step',
                 float(generator_loss),
-                step=checkpoint.step,
+                step=int(checkpoint.step),
             )
             tf.summary.scalar(
                 'l1_loss_per_step',
                 float(l1_loss),
-                step=checkpoint.step,
+                step=int(checkpoint.step),
             )
 
         return perceptual_loss + generator_loss + l1_loss
@@ -239,12 +246,12 @@ class Loss():
             tf.summary.scalar(
                 'sr_generator_loss_per_step',
                 float(super_resolution_loss),
-                step=checkpoint.step,
+                step=int(checkpoint.step),
             )
             tf.summary.scalar(
                 'arcloss_per_step',
                 float(synthetic_face_recognition_loss),
-                step=checkpoint.step,
+                step=int(checkpoint.step),
             )
 
         return (synthetic_face_recognition_loss +
@@ -260,6 +267,14 @@ class Loss():
         groud_truth_average = ground_truth_predictions - super_resolution_mean
         super_resolution_average = (sr_predictions - groud_truth_mean)
 
+        # Reshaping tensor from shape [batch_size, 1] to [1, batch_size],
+        # because with the original shape `apply_softmax` was buggy and was
+        # outputting an array of 1's like [1, 1, 1, 1, ...].
+        groud_truth_average = self.reshape_tensor_to_softmax(
+                                                        groud_truth_average)
+        super_resolution_average = self.reshape_tensor_to_softmax(
+                                                    super_resolution_average)
+
         gt_relativistic_average = self._compute_binary_crossentropy(
             tf.ones_like(groud_truth_average),
             apply_softmax(groud_truth_average),
@@ -269,3 +284,8 @@ class Loss():
             apply_softmax(super_resolution_average),
         )
         return (gt_relativistic_average + sr_relativistic_average) / 2
+
+    @staticmethod
+    @tf.function
+    def reshape_tensor_to_softmax(tensor):
+        return tf.expand_dims(tf.squeeze(tensor), axis=0)
