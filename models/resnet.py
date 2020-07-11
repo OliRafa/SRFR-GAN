@@ -3,7 +3,6 @@ Only the ResNet50, Resnet101 and ResNet152 were implemented."""
 from tensorflow.keras import Model, Sequential
 from tensorflow.keras.layers import (
     Add,
-    BatchNormalization,
     Conv2D,
     Dense,
     Dropout,
@@ -47,11 +46,9 @@ class Shortcut(Model):
             kernel_size=(1, 1),
             strides=stride
         )
-        self._bn = BatchNormalization(trainable=self._trainable)
 
     def call(self, input_tensor):
-        output = self._conv(input_tensor)
-        return self._bn(output)
+        return self._conv(input_tensor)
 
 class Bottleneck(Model):
     """Model class for the Bottleneck Convolutional Block.
@@ -84,7 +81,6 @@ class Bottleneck(Model):
             kernel_size=(1, 1),
             strides=(1, 1)
         )
-        self._bn1 = BatchNormalization(trainable=self._trainable)
         self._activation1 = mish
         self._conv2 = Conv2D(
             filters=filters[1],
@@ -92,14 +88,12 @@ class Bottleneck(Model):
             strides=stride,
             padding='same'
         )
-        self._bn2 = BatchNormalization(trainable=self._trainable)
         self._activation2 = mish
         self._conv3 = Conv2D(
             filters=filters[2],
             kernel_size=(1, 1),
             strides=(1, 1)
         )
-        self._bn3 = BatchNormalization(trainable=self._trainable)
 
     def call(self, input_tensor):
         if self._sc_layer:
@@ -108,13 +102,10 @@ class Bottleneck(Model):
             residual = input_tensor
 
         output = self._conv1(input_tensor)
-        output = self._bn1(output)
         output = self._activation1(output)
         output = self._conv2(output)
-        output = self._bn2(output)
         output = self._activation2(output)
         output = self._conv3(output)
-        output = self._bn3(output)
         output = Add()([output, residual])
         return mish(output)
 
@@ -152,22 +143,11 @@ class ResNet(Model):
         ) = self._generate_layers(network_configs[str(depth)], layer_configs)
         #self._avg_pool = AveragePooling2D((1, 1), name='avg_pooling')
         self._flatten = Flatten(name='flatten')
-        self._bn = BatchNormalization(
-            momentum=0.9,
-            epsilon=2e-05,
-            trainable=self._trainable,
-        )
         self._dropout = Dropout(rate=0.4)
         self._fully_connected = Dense(
             units=categories,
             activation='softmax',
             name='fully_connected',
-        )
-        self._bn2 = BatchNormalization(
-            momentum=0.9,
-            epsilon=2e-05,
-            trainable=self._trainable,
-            dtype='float32',
         )
 
     def _generate_layers(self, layers, filters):
@@ -202,9 +182,7 @@ class ResNet(Model):
         output = self._conv3(output)
         output = self._conv4(output)
         output = self._conv5(output)
-        output = self._bn(output)
         output = self._dropout(output)
         output = self._flatten(output)
         output = self._fully_connected(output)
-        output = self._bn2(output)
         return output
