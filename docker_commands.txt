@@ -1,5 +1,6 @@
 #docker run --gpus all -d -u $(id -u):$(id -g) -v $(pwd)/datasets:/app/datasets -v $(pwd)/logs:/app/logs -v $(pwd)/training_checkpoints:/app/training_checkpoints --name srfr arcfacetensorflow20
 docker run --gpus all -d --privileged=true -v $(pwd)/datasets:/app/datasets -v $(pwd)/temp:/app/temp -v $(pwd)/logs:/app/logs -v $(pwd)/training_checkpoints:/app/training_checkpoints --name srfr srfr:novograd
+docker run --gpus all -d --privileged=true -v $LOCAL_WORKSPACE_FOLDER/datasets:/app/datasets -v $LOCAL_WORKSPACE_FOLDER/temp:/app/temp -v $LOCAL_WORKSPACE_FOLDER/logs:/app/logs -v $LOCAL_WORKSPACE_FOLDER/training_checkpoints:/app/training_checkpoints --name srfr srfr:novograd
 
 docker cp srfr:/app/train_logs.txt .
 
