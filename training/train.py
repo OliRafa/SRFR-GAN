@@ -320,19 +320,24 @@ class Train:
             )
         )
 
-    #@tf.function
-    def _step_function(self, low_resolution_batch, groud_truth_batch,
-                       ground_truth_classes, num_classes):
-        with tf.GradientTape() as srfr_tape, \
-                tf.GradientTape() as discriminator_tape:
-            (super_resolution_images, embeddings) = self.srfr_model(
-                low_resolution_batch)
+    @tf.function
+    def _step_function(
+        self, low_resolution_batch, groud_truth_batch, ground_truth_classes, num_classes
+    ):
+        with tf.GradientTape() as srfr_tape, tf.GradientTape() as discriminator_tape:
+            (super_resolution_images, embeddings, predictions) = self.srfr_model(
+                low_resolution_batch
+            )
             discriminator_sr_predictions = self.discriminator_model(
-                super_resolution_images)
-            discriminator_gt_predictions = self.discriminator_model(
-                groud_truth_batch)
-            synthetic_face_recognition = (embeddings, ground_truth_classes,
-                                          num_classes)
+                super_resolution_images
+            )
+            discriminator_gt_predictions = self.discriminator_model(groud_truth_batch)
+            synthetic_face_recognition = (
+                embeddings,
+                predictions,
+                ground_truth_classes,
+                num_classes,
+            )
             srfr_loss = self.losses.compute_joint_loss(
                 super_resolution_images,
                 groud_truth_batch,
@@ -345,27 +350,35 @@ class Train:
                 discriminator_sr_predictions,
                 discriminator_gt_predictions,
             )
-            srfr_loss = srfr_loss / self.strategy.num_replicas_in_sync
-            discriminator_loss = (discriminator_loss /
-                                  self.strategy.num_replicas_in_sync)
-            srfr_scaled_loss = self.srfr_optimizer.get_scaled_loss(srfr_loss)
-            discriminator_scaled_loss = self.discriminator_optimizer.\
-                get_scaled_loss(discriminator_loss)
+            divided_srfr_loss = srfr_loss / self.strategy.num_replicas_in_sync
+            divided_discriminator_loss = (
+                discriminator_loss / self.strategy.num_replicas_in_sync
+            )
+            srfr_scaled_loss = self.srfr_optimizer.get_scaled_loss(divided_srfr_loss)
+            discriminator_scaled_loss = self.discriminator_optimizer.get_scaled_loss(
+                divided_discriminator_loss
+            )
 
-        srfr_grads = srfr_tape.gradient(srfr_scaled_loss,
-                                        self.srfr_model.trainable_weights)
+        srfr_grads = srfr_tape.gradient(
+            srfr_scaled_loss, self.srfr_model.trainable_weights
+        )
         discriminator_grads = discriminator_tape.gradient(
             discriminator_scaled_loss,
             self.discriminator_model.trainable_weights,
         )
         self.srfr_optimizer.apply_gradients(
-            zip(self.srfr_optimizer.get_unscaled_gradients(srfr_grads),
-                self.srfr_model.trainable_weights)
+            zip(
+                self.srfr_optimizer.get_unscaled_gradients(srfr_grads),
+                self.srfr_model.trainable_weights,
+            )
         )
         self.discriminator_optimizer.apply_gradients(
-            zip(self.discriminator_optimizer.get_unscaled_gradients(
-                discriminator_grads),
-                self.discriminator_model.trainable_weights)
+            zip(
+                self.discriminator_optimizer.get_unscaled_gradients(
+                    discriminator_grads
+                ),
+                self.discriminator_model.trainable_weights,
+            )
         )
         return srfr_loss, discriminator_loss, super_resolution_images
 
@@ -394,18 +407,21 @@ class Train:
             The loss value and the gradients for SRFR network, as well as the
             loss value and the gradients for the Discriminative network.
         """
-        srfr_loss, discriminator_loss, super_resolution_images = \
-            self.strategy.experimental_run_v2(
-                self._step_function,
-                args=(
-                    synthetic_images,
-                    groud_truth_images,
-                    synthetic_classes,
-                    num_classes,
-                ),
-            )
-        srfr_loss = self.strategy.reduce(tf.distribute.ReduceOp.MEAN,
-                                         srfr_loss, None)
+        (
+            srfr_loss,
+            discriminator_loss,
+            super_resolution_images,
+        ) = self.strategy.experimental_run_v2(
+            self._step_function,
+            args=(
+                synthetic_images,
+                groud_truth_images,
+                synthetic_classes,
+                num_classes,
+            ),
+        )
+
+        srfr_loss = self.strategy.reduce(tf.distribute.ReduceOp.MEAN, srfr_loss, None)
         discriminator_loss = self.strategy.reduce(
             tf.distribute.ReduceOp.MEAN,
             discriminator_loss,

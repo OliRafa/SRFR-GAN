@@ -126,17 +126,17 @@ class Loss:
 
         with self.train_summary_writer.as_default():
             tf.summary.scalar(
-                'perceptual_loss_per_step',
+                "perceptual_loss_per_step",
                 float(perceptual_loss),
                 step=int(checkpoint.step),
             )
             tf.summary.scalar(
-                'generator_loss_per_step',
+                "generator_loss_per_step",
                 float(generator_loss),
                 step=int(checkpoint.step),
             )
             tf.summary.scalar(
-                'l1_loss_per_step',
+                "l1_loss_per_step",
                 float(l1_loss),
                 step=int(checkpoint.step),
             )
@@ -225,30 +225,26 @@ class Loss:
             discriminator_gt_predictions,
             checkpoint,
         )
-        synthetic_face_recognition_loss = self._compute_arcloss(
-            synthetic_face_recognition[0],
+        synthetic_face_recognition_loss = self._compute_categorical_crossentropy(
             synthetic_face_recognition[1],
             synthetic_face_recognition[2],
         )
         if natural_face_recognition:
-            natural_face_recognition_loss = self._compute_arcloss(
-                natural_face_recognition[0],
-                natural_face_recognition[1],
-                natural_face_recognition[2],
-                'nat',
+            natural_face_recognition_loss = self._compute_categorical_crossentropy(
+                synthetic_face_recognition[1],
+                synthetic_face_recognition[2],
             )
-            fr_loss = (synthetic_face_recognition_loss +
-                       natural_face_recognition_loss)
+            fr_loss = synthetic_face_recognition_loss + natural_face_recognition_loss
             return fr_loss + self.weight * super_resolution_loss
 
         with self.train_summary_writer.as_default():
             tf.summary.scalar(
-                'sr_generator_loss_per_step',
+                "sr_generator_loss_per_step",
                 float(super_resolution_loss),
                 step=int(checkpoint.step),
             )
             tf.summary.scalar(
-                'arcloss_per_step',
+                "arcloss_per_step",
                 float(synthetic_face_recognition_loss),
                 step=int(checkpoint.step),
             )
