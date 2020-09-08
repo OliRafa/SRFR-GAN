@@ -1,11 +1,18 @@
+from pathlib import Path
+
 from tensorflow import keras
 from tensorflow.keras.applications import VGG19
 from tensorflow.keras.layers import Activation
 
 
+_VGG19_PATH = Path.cwd().joinpath(
+    "data", "keras", "models", "vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5"
+)
+
+
 def create_vgg_model():
-    vgg = VGG19(include_top=False, weights='imagenet')
-    #weights = vgg.get_weights()
+    vgg = VGG19(include_top=False, weights=str(_VGG19_PATH))  # , weights="imagenet")
+    # weights = vgg.get_weights()
 
     # Removing the activation function from the last conv layer 'block5_conv4'
     vgg.layers[-2].activation = None
@@ -15,7 +22,7 @@ def create_vgg_model():
         vgg_output = layer(vgg_output)
 
     # Casting from float16 to float32 for MixedPrecisionPolicy
-    vgg_output = Activation('linear', dtype='float32')(vgg_output)
+    vgg_output = Activation("linear", dtype="float32")(vgg_output)
 
     # Creating the model with layers [input, ..., last_conv_layer]
     # I.e. removing the last MaxPooling layer from the model
