@@ -72,11 +72,12 @@ class Loss:
         self.scale = scale
         self.margin = margin
 
-        self._compute_categorical_crossentropy = \
-            distributed_sum_over_batch_size(batch_size)(
-                compute_categorical_crossentropy)
-        self._compute_binary_crossentropy = distributed_sum_over_batch_size()(
-            compute_binary_crossentropy)
+        self._compute_categorical_crossentropy = distributed_sum_over_batch_size(
+            compute_categorical_crossentropy
+        )
+        self._compute_binary_crossentropy = distributed_sum_over_batch_size(
+            compute_binary_crossentropy
+        )
 
     def _compute_perceptual_loss(self, super_resolution, ground_truth) -> float:
         fake = self.vgg(super_resolution)
