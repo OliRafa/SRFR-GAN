@@ -215,3 +215,4 @@ datasets/*
 training_checkpoints/*
 temp/*
 output.log
+data/keras/models/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5

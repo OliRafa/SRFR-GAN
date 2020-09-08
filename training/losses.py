@@ -22,7 +22,7 @@ from training.metrics import (
 from training.vgg import create_vgg_model
 
 
-#def compute_joint_loss_simple(
+# def compute_joint_loss_simple(
 #        vgg,
 #        super_resolution,
 #        embedding,
@@ -53,16 +53,16 @@ from training.vgg import create_vgg_model
 #    return face_recognition_loss + weight * super_resolution_loss
 
 
-class Loss():
+class Loss:
     def __init__(
-            self,
-            srfr_model,
-            batch_size: int,
-            train_summary_writer,
-            weight: float = 0.1,
-            scale: float = 64.0,
-            margin: float = 0.5,
-            ):
+        self,
+        srfr_model,
+        batch_size: int,
+        train_summary_writer,
+        weight: float = 0.1,
+        scale: float = 64.0,
+        margin: float = 0.5,
+    ):
         self.LOGGER = logging.getLogger(__name__)
         self.train_summary_writer = train_summary_writer
 
@@ -84,8 +84,7 @@ class Loss():
         return self.weight * compute_euclidean_distance(fake, real)
 
     @tf.function
-    def _generator_loss(self, sr_predictions,
-                        ground_truth_predictions) -> float:
+    def _generator_loss(self, sr_predictions, ground_truth_predictions) -> float:
         super_resolution_mean = tf.math.reduce_mean(sr_predictions)
         groud_truth_mean = tf.math.reduce_mean(ground_truth_predictions)
 
@@ -95,10 +94,10 @@ class Loss():
         # Reshaping tensor from shape [batch_size, 1] to [1, batch_size],
         # because with the original shape `apply_softmax` was buggy and was
         # outputting an array of 1's like [1, 1, 1, 1, ...].
-        groud_truth_average = self.reshape_tensor_to_softmax(
-                                                        groud_truth_average)
+        groud_truth_average = self.reshape_tensor_to_softmax(groud_truth_average)
         super_resolution_average = self.reshape_tensor_to_softmax(
-                                                    super_resolution_average)
+            super_resolution_average
+        )
 
         gt_relativistic_average = self._compute_binary_crossentropy(
             tf.zeros_like(groud_truth_average),
@@ -111,17 +110,17 @@ class Loss():
         return (gt_relativistic_average + sr_relativistic_average) / 2
 
     def _compute_generator_loss(
-                self,
-                super_resolution,
-                ground_truth,
-                discriminator_sr_predictions,
-                discriminator_gt_predictions,
-                checkpoint,
-            ) -> float:
-        perceptual_loss = self._compute_perceptual_loss(super_resolution,
-                                                        ground_truth)
-        generator_loss = self._generator_loss(discriminator_sr_predictions,
-                                              discriminator_gt_predictions)
+        self,
+        super_resolution,
+        ground_truth,
+        discriminator_sr_predictions,
+        discriminator_gt_predictions,
+        checkpoint,
+    ) -> float:
+        perceptual_loss = self._compute_perceptual_loss(super_resolution, ground_truth)
+        generator_loss = self._generator_loss(
+            discriminator_sr_predictions, discriminator_gt_predictions
+        )
         l1_loss = self.weight * compute_l1_loss(super_resolution, ground_truth)
 
         with self.train_summary_writer.as_default():
@@ -149,16 +148,17 @@ class Loss():
             input_shape=(512,),
             units=num_classes,
             use_bias=False,
-            name='fully_connected_to_softmax_crossentropy',
-            dtype='float32',
+            name="fully_connected_to_softmax_crossentropy",
+            dtype="float32",
             trainable=False,
         )
         dense_layer.build(input_shape)
         dense_layer.set_weights([normalized_weights.read_value()])
         return dense_layer
 
-    def _compute_arcloss(self, embeddings, ground_truth, num_classes: int,
-                         net_type: str = 'syn') -> float:
+    def _compute_arcloss(
+        self, embeddings, ground_truth, num_classes: int, net_type: str = "syn"
+    ) -> float:
         """Compute the ArcLoss.
 
         ### Parameters
@@ -184,21 +184,19 @@ class Loss():
         difference = marginal_target_embeddings - original_target_embeddings
         new_one_hot = one_hot_vector * difference
 
-        softmax_output = apply_softmax(original_target_embeddings +
-                                       new_one_hot)
-        return self._compute_categorical_crossentropy(softmax_output,
-                                                      one_hot_vector)
+        softmax_output = apply_softmax(original_target_embeddings + new_one_hot)
+        return self._compute_categorical_crossentropy(softmax_output, one_hot_vector)
 
     def compute_joint_loss(
-            self,
-            super_resolution_images,
-            ground_truth_images,
-            discriminator_sr_predictions,
-            discriminator_gt_predictions,
-            synthetic_face_recognition,
-            checkpoint,
-            natural_face_recognition=None,
-            ) -> float:
+        self,
+        super_resolution_images,
+        ground_truth_images,
+        discriminator_sr_predictions,
+        discriminator_gt_predictions,
+        synthetic_face_recognition,
+        checkpoint,
+        natural_face_recognition=None,
+    ) -> float:
         """Computes the Joint Loss for Super Resolution Face Recognition, using\
     outputs from Synthetic SRFR and Natural SRFR, or using outputs from Synthetic\
     SRFR only.
@@ -207,7 +205,7 @@ class Loss():
         ----------
             super_resolution_images: Outputs from the Super Resolution Generator.
             ground_truth_images: High Resolution inputs.
-            synthetic_face_recognition: A tuple of (embeddings, ground_truth_\
+            synthetic_face_recognition: A tuple of (embeddings, predictions, ground_truth_\
     classes, fc_weights, num_classes) from the Synthetic SRFR.
             natural_face_recognition: A tuple of (embeddings, ground_truth_\
     classes, fc_weights, num_classes) from the Natural SRFR.
@@ -254,26 +252,25 @@ class Loss():
                 step=int(checkpoint.step),
             )
 
-        return (synthetic_face_recognition_loss +
-                self.weight *
-                super_resolution_loss)
+        return synthetic_face_recognition_loss + self.weight * super_resolution_loss
 
     @tf.function
-    def compute_discriminator_loss(self, sr_predictions,
-                                   ground_truth_predictions) -> float:
+    def compute_discriminator_loss(
+        self, sr_predictions, ground_truth_predictions
+    ) -> float:
         super_resolution_mean = tf.math.reduce_mean(sr_predictions)
         groud_truth_mean = tf.math.reduce_mean(ground_truth_predictions)
 
         groud_truth_average = ground_truth_predictions - super_resolution_mean
-        super_resolution_average = (sr_predictions - groud_truth_mean)
+        super_resolution_average = sr_predictions - groud_truth_mean
 
         # Reshaping tensor from shape [batch_size, 1] to [1, batch_size],
         # because with the original shape `apply_softmax` was buggy and was
         # outputting an array of 1's like [1, 1, 1, 1, ...].
-        groud_truth_average = self.reshape_tensor_to_softmax(
-                                                        groud_truth_average)
+        groud_truth_average = self.reshape_tensor_to_softmax(groud_truth_average)
         super_resolution_average = self.reshape_tensor_to_softmax(
-                                                    super_resolution_average)
+            super_resolution_average
+        )
 
         gt_relativistic_average = self._compute_binary_crossentropy(
             tf.ones_like(groud_truth_average),
