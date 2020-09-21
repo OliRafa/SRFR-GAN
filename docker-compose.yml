@@ -1,8 +1,0 @@
-version: '3.4'
-
-services:
-  arcfacetensorflow2:
-    image: arcfacetensorflow2
-    build:
-      context: .
-      dockerfile: Dockerfile

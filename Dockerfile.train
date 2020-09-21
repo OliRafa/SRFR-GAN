@@ -18,8 +18,8 @@ WORKDIR /app
 ADD . /app
 
 VOLUME /app/datasets
-VOLUME /app/logs
-VOLUME /app/training_checkpoints
-VOLUME /app/temp
+VOLUME /app/data/logs
+VOLUME /app/data/training_checkpoints
+VOLUME /app/data/temp
 
 CMD ["python3", "main.py"]
