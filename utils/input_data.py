@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
-from tqdm import tqdm
 import tensorflow as tf
 import yaml
+from tqdm import tqdm
 
 # Checar se o filter de overlaps no loading do dataset esta funcionando corretamente
 # Terminar checagem do get_lfw
@@ -15,12 +15,12 @@ import yaml
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
-class InputData():
-    """
-    """
+class InputData:
+    """"""
+
     def __init__(self):
         self._logger = logging.getLogger(__name__)
-        self._preprocess_settigs = parseConfigsFile(['preprocess'])
+        self._preprocess_settigs = parseConfigsFile(["preprocess"])
 
     @staticmethod
     @tf.function
@@ -65,7 +65,7 @@ class InputData():
 
         image_lr = tf.image.flip_left_right(image_lr)
         image_hr = tf.image.flip_left_right(image_hr)
-        sample_id = tf.strings.join((sample_id, 'augmented'), separator='-')
+        sample_id = tf.strings.join((sample_id, "augmented"), separator="-")
 
         return image_lr, image_hr, class_id, sample_id
 
@@ -117,7 +117,7 @@ class InputData():
         """
 
         image = tf.image.flip_left_right(image)
-        sample_id = tf.strings.join((sample_id, 'augmented'), separator='-')
+        sample_id = tf.strings.join((sample_id, "augmented"), separator="-")
 
         return image, class_id, sample_id
 
@@ -143,18 +143,40 @@ class InputData():
         """
         return tf.image.flip_left_right(image), class_id
 
+    @staticmethod
+    @tf.function
+    def _augment_image_i(image):
+        """Flips the given image and adds '-augmented' at the end of the sample
+        for data augmentation.
+
+        ### Parameters
+            image: image to be flipped.
+            class_id: corresponding class for the image, passed through the function
+            to be correctly concatenated with the original dataset.
+            sample: sample name. Can be None in case the dataset has no sample
+            attribute.
+
+        ### Returns
+            If the dataset has sample attribute, returns (augmented_image, class_id,
+            augmented_sample): the flipped image, it's
+            class and it's sample name.
+            If the dataset has no sample attribute, returns (augmented_image,
+            class_id) instead.
+        """
+        return tf.image.flip_left_right(image)
+
     def augment_dataset(self, dataset, dataset_shape):
-        if dataset_shape == 'iics':
+        if dataset_shape == "iics":
             augmented_dataset = dataset.map(
                 self._augment_image_iics,
                 num_parallel_calls=AUTOTUNE,
             )
-        elif dataset_shape == 'iic':
+        elif dataset_shape == "iic":
             augmented_dataset = dataset.map(
                 self._augment_image_iic,
                 num_parallel_calls=AUTOTUNE,
             )
-        elif dataset_shape == 'ics':
+        elif dataset_shape == "ics":
             augmented_dataset = dataset.map(
                 self._augment_image_ics,
                 num_parallel_calls=AUTOTUNE,
@@ -171,8 +193,8 @@ class InputData():
     def split_path(file_path):
         parts = tf.strings.split(file_path, os.path.sep)
 
-        class_id = parts.numpy()[-2].decode('utf-8')
-        sample_id = parts.numpy()[-1].decode('utf-8').split('.')[0]
+        class_id = parts.numpy()[-2].decode("utf-8")
+        sample_id = parts.numpy()[-1].decode("utf-8").split(".")[0]
 
         return class_id, sample_id
 
@@ -184,7 +206,7 @@ class InputData():
 
         return class_list, new_class_id
 
-    #def _export_file(self, class_list, dataset_type):
+    # def _export_file(self, class_list, dataset_type):
     #    try:
     #        path = Path(os.path.join(
     #            os.getcwd(),
@@ -194,7 +216,7 @@ class InputData():
     #        ))
     #        if not path.is_dir():
     #            path.mkdir(parents=True)
-#
+    #
     #        path = path.joinpath(f'{dataset_type}.txt')
     #        with path.open('a') as file_:
     #            for class_id, new_class_id in class_list:
@@ -203,7 +225,7 @@ class InputData():
     #        self._logger.warning(f" Class pairs for {self._dataset.name} couldn't be saved.\
     #            Exception: {ex}")
 
-    #def _generate_class_pairs(
+    # def _generate_class_pairs(
     #        self,
     #        dataset_path: str,
     #        concatenate: bool = False,
@@ -235,16 +257,23 @@ class InputData():
     #                )
 
     def _get_class_pairs(self, dataset_name: str, file_name: str):
-        self._logger.info(f' Getting class pairs.')
+        self._logger.info(f" Getting class pairs.")
 
-        path = Path().cwd().joinpath('utils', 'class_pairs', f'{dataset_name}',\
-            f'{file_name}.txt')
+        path = (
+            Path()
+            .cwd()
+            .joinpath("utils", "class_pairs", f"{dataset_name}", f"{file_name}.txt")
+        )
         if not path.is_file():
-            self._logger.warning(f' File not found for {dataset_name}.')
+            self._logger.warning(f" File not found for {dataset_name}.")
             return None
 
-        return tf.lookup.StaticHashTable(tf.lookup.TextFileInitializer( \
-            str(path), tf.string, 0, tf.int32, 1, delimiter=','), -1)
+        return tf.lookup.StaticHashTable(
+            tf.lookup.TextFileInitializer(
+                str(path), tf.string, 0, tf.int32, 1, delimiter=","
+            ),
+            -1,
+        )
 
     @staticmethod
     @tf.function
@@ -300,11 +329,11 @@ class InputData():
         )
 
     def _load_from_tfrecords(
-            self,
-            dataset_paths: Union[str, List[str]],
-            decoding_function,
-        ):
-        self._logger.info(f' Loading from {dataset_paths}.')
+        self,
+        dataset_paths: Union[str, List[str]],
+        decoding_function,
+    ):
+        self._logger.info(f" Loading from {dataset_paths}.")
         dataset = tf.data.TFRecordDataset(dataset_paths)
         dataset = dataset.map(
             decoding_function,
@@ -325,19 +354,18 @@ class InputData():
             Tuple with the identities to be cleaned.
         """
         overlapping = set()
-        path = Path().cwd().joinpath(
-            'utils', 'overlapping_identities', dataset_name)
-        for file_path in path.glob('*'):
-            with  file_path.open('r') as _file:
+        path = Path().cwd().joinpath("utils", "overlapping_identities", dataset_name)
+        for file_path in path.glob("*"):
+            with file_path.open("r") as _file:
                 for line in _file.readlines():
-                    overlapping.add(line.replace('\n', ''))
+                    overlapping.add(line.replace("\n", ""))
 
         return tuple(overlapping)
 
     def _get_dataset_size(
-            self,
-            dataset,
-        ) -> int:
+        self,
+        dataset,
+    ) -> int:
         """Gets the size of a given dataset.
 
         ### Parameters
@@ -350,14 +378,14 @@ class InputData():
         return sum(1 for _ in dataset)
 
     def load_dataset(
-            self,
-            dataset_name: str,
-            dataset_paths: Union[str, List[str]],
-            decoding_function,
-            mode: str,
-            remove_overlaps: bool = False,
-            sample_ids: bool = False,
-        ):
+        self,
+        dataset_name: str,
+        dataset_paths: Union[str, List[str]],
+        decoding_function,
+        mode: str,
+        remove_overlaps: bool = False,
+        sample_ids: bool = False,
+    ):
         """Loads the dataset from disk, returning a TF Tensor with shape\
      (image, class_id, sample).
 
@@ -387,10 +415,13 @@ class InputData():
      dataset_length) - dataset Tensor, number of classes and dataset length.
         """
         self._sample_ids = sample_ids
-        self._overlaps = (self._get_overlapping_identities(dataset_name) if
-                          remove_overlaps else remove_overlaps)
+        self._overlaps = (
+            self._get_overlapping_identities(dataset_name)
+            if remove_overlaps
+            else remove_overlaps
+        )
 
-        if mode == 'both':
+        if mode == "both":
             train_dataset = self._load_from_tfrecords(
                 dataset_paths[0],
                 decoding_function,
@@ -418,44 +449,100 @@ class LFW(InputData):
         super().__init__()
         self._number_of_classes = 5750
         self._serialized_features = {
-            'class_id': tf.io.FixedLenFeature([], tf.string),
-            'sample_id': tf.io.FixedLenFeature([], tf.string),
-            'image_low_resolution': tf.io.FixedLenFeature([], tf.string),
+            "class_id": tf.io.FixedLenFeature([], tf.string),
+            "sample_id": tf.io.FixedLenFeature([], tf.string),
+            "image_low_resolution": tf.io.FixedLenFeature([], tf.string),
         }
-        self._dataset_settings = parseConfigsFile(['dataset'])['lfw_lr']
+        self._dataset_settings = parseConfigsFile(["dataset"])["lfw_lr"]
+        self.image_shape = parseConfigsFile(["preprocess"])[
+            "image_shape_low_resolution"
+        ]
         self._logger = super().get_logger()
         self._dataset = None
 
+    # def get_dataset(self):
+    #    self._logger.info(" Loading LFW_LR in test mode.")
+    #    self._dataset = super().load_dataset(
+    #        "LFW_LR",
+    #        self._dataset_settings["path"],
+    #        self._decoding_function,
+    #        "train",
+    #    )
+    #    self._dataset = self.augment_dataset(self._dataset)
+    #    self._dataset = self._dataset.map(
+    #        lambda image, augmented_image, class_id, sample: (
+    #            self.normalize_image(image),
+    #            self.normalize_image(augmented_image),
+    #            sample,
+    #        ),
+    #        num_parallel_calls=AUTOTUNE,
+    #    )
+    #    pairs = self.load_lfw_pairs()
+    #    # with tf.device("/GPU:0"):
+    #    (
+    #        left_pairs,
+    #        left_aug_pairs,
+    #        right_pairs,
+    #        right_aug_pairs,
+    #        is_same_list,
+    #    ) = self._generate_dataset(self._dataset, pairs)
+    #    # with tf.device("/CPU:0"):
+    #    left_pairs = tf.data.Dataset.from_tensor_slices(left_pairs)
+    #    left_aug_pairs = tf.data.Dataset.from_tensor_slices(left_aug_pairs)
+    #    right_pairs = tf.data.Dataset.from_tensor_slices(right_pairs)
+    #    right_aug_pairs = tf.data.Dataset.from_tensor_slices(right_aug_pairs)
+    #
+    #    self._dataset = (
+    #        left_pairs,
+    #        left_aug_pairs,
+    #        right_pairs,
+    #        right_aug_pairs,
+    #        is_same_list,
+    #    )
+    #    return self._dataset
     def get_dataset(self):
-        self._logger.info(' Loading LFW_LR in test mode.')
-        self._dataset = super().load_dataset(
-            'LFW_LR',
-            self._dataset_settings['path'],
-            self._decoding_function,
-            'train',
+        self._logger.info(" Loading LFW_LR in test mode.")
+        path = Path.cwd().joinpath("data", "datasets", "LFW")
+        left_pairs = tf.data.Dataset.list_files(
+            str(path.joinpath("images", "left", "*")), shuffle=False
         )
-        self._dataset = self.augment_dataset(self._dataset)
-        self._dataset = self._dataset.map(
-            lambda image, augmented_image, class_id, sample: (
+        left_pairs = left_pairs.map(
+            self._decode_image_from_path, num_parallel_calls=AUTOTUNE
+        )
+        left_pairs = self.augment_dataset(left_pairs)
+        left_pairs = left_pairs.map(
+            lambda image, augmented_image: (
                 self.normalize_image(image),
                 self.normalize_image(augmented_image),
-                sample,
             ),
             num_parallel_calls=AUTOTUNE,
         )
-        pairs = self.load_lfw_pairs()
-        with tf.device('/GPU:0'):
-            (left_pairs, left_aug_pairs, right_pairs, right_aug_pairs,
-             is_same_list) = self._generate_dataset(self._dataset, pairs)
-        with tf.device('/CPU:0'):
-            left_pairs = tf.data.Dataset.from_tensor_slices(left_pairs)
-            left_aug_pairs = tf.data.Dataset.from_tensor_slices(left_aug_pairs)
-            right_pairs = tf.data.Dataset.from_tensor_slices(right_pairs)
-            right_aug_pairs = tf.data.Dataset.from_tensor_slices(right_aug_pairs)
+        right_pairs = tf.data.Dataset.list_files(
+            str(path.joinpath("images", "right", "*")), shuffle=False
+        )
+        right_pairs = right_pairs.map(
+            self._decode_image_from_path, num_parallel_calls=AUTOTUNE
+        )
+        right_pairs = self.augment_dataset(right_pairs)
+        right_pairs = right_pairs.map(
+            lambda image, augmented_image: (
+                self.normalize_image(image),
+                self.normalize_image(augmented_image),
+            ),
+            num_parallel_calls=AUTOTUNE,
+        )
 
-        self._dataset = (left_pairs, left_aug_pairs, right_pairs,
-                         right_aug_pairs, is_same_list)
-        return self._dataset
+        with path.joinpath("is_same_list.json").open("r") as obj:
+            is_same_list = json.load(obj)
+
+        is_same_list = np.array(is_same_list, dtype=np.int16).astype(np.bool)
+
+        return left_pairs, right_pairs, is_same_list
+
+    def _decode_image_from_path(self, image_path):
+        image = tf.io.read_file(image_path)
+        image = tf.image.decode_jpeg(image, channels=3)
+        return tf.image.resize(image, self.image_shape[:2])
 
     def get_number_of_classes(self):
         return self._number_of_classes
@@ -464,7 +551,7 @@ class LFW(InputData):
         return super()._get_dataset_size(self._dataset)
 
     def get_dataset_shape(self):
-        return 'iis'
+        return "iis"
 
     @tf.function
     def _decoding_function(self, serialized_example):
@@ -473,41 +560,37 @@ class LFW(InputData):
             self._serialized_features,
         )
         image_lr = super()._decode_raw_image(
-            deserialized_example['image_low_resolution']
+            deserialized_example["image_low_resolution"]
         )
         image_lr = tf.reshape(
             image_lr,
             tf.stack(
-                [*super().get_preprocess_settings()['image_shape_low_resolution']]
+                [*super().get_preprocess_settings()["image_shape_low_resolution"]]
             ),
         )
-        class_id = super()._decode_string(deserialized_example['class_id'])
-        sample_id = self._decode_string(deserialized_example['sample_id'])
+        class_id = super()._decode_string(deserialized_example["class_id"])
+        sample_id = self._decode_string(deserialized_example["sample_id"])
         return image_lr, class_id, sample_id
 
     def augment_dataset(self, dataset):
-        self._logger.info(' Augmenting LFW_LR dataset.')
+        self._logger.info(" Augmenting LFW_LR dataset.")
         augmented_dataset = dataset.map(
-            super()._augment_image_ics,
-            num_parallel_calls=AUTOTUNE,
-        )
-        # Removing class_id and sample from augmentation
-        augmented_dataset = augmented_dataset.map(
-            lambda image, class_id, sample_id: image,
+            super()._augment_image_i,
             num_parallel_calls=AUTOTUNE,
         )
         dataset_zip = dataset.zip((dataset, augmented_dataset))
         # Reordering dataset to match the format
         # (image, augmented_image, class_id, sample_id)
-        return dataset_zip.map(
-            lambda input_ds, augmented_ds: (
-                input_ds[0],
-                augmented_ds,
-                input_ds[1],
-                input_ds[2],
-            ),
-            num_parallel_calls=AUTOTUNE,
-        )
+        # return dataset_zip.map(
+        #    lambda input_ds, augmented_ds: (
+        #        input_ds[0],
+        #        augmented_ds,
+        #        input_ds[1],
+        #        input_ds[2],
+        #    ),
+        #    num_parallel_calls=AUTOTUNE,
+        # )
+        return dataset_zip
 
     def _generate_dataset(self, dataset, pairs):
         is_same_list = []
@@ -515,32 +598,39 @@ class LFW(InputData):
         left_aug_pairs: tf.data.Dataset = []
         right_pairs: tf.data.Dataset = []
         right_aug_pairs: tf.data.Dataset = []
-        #i = 0
+        # i = 0
         for id_01, id_02, is_same in tqdm(pairs):
-            left, left_augmented = next(iter(
-                dataset.filter(lambda x, y, z: tf.equal(z, id_01)).map(
-                    lambda image, augmented_image, label: (image,
-                                                           augmented_image)
+            left, left_augmented = next(
+                iter(
+                    dataset.filter(lambda x, y, z: tf.equal(z, id_01)).map(
+                        lambda image, augmented_image, label: (image, augmented_image)
+                    )
                 )
-            ))
-            right, right_augmented = next(iter(
-                dataset.filter(lambda x, y, z: tf.equal(z, id_02)).map(
-                    lambda image, augmented_image, label: (image,
-                                                           augmented_image)
+            )
+            right, right_augmented = next(
+                iter(
+                    dataset.filter(lambda x, y, z: tf.equal(z, id_02)).map(
+                        lambda image, augmented_image, label: (image, augmented_image)
+                    )
                 )
-            ))
+            )
             left_pairs.append(left)
             left_aug_pairs.append(left_augmented)
             right_pairs.append(right)
             right_aug_pairs.append(right_augmented)
             is_same_list.append(is_same)
-            
-            #if i == 305:
-            #    break
-            #i += 1
 
-        return (left_pairs, left_aug_pairs, right_pairs, right_aug_pairs,
-                np.array(is_same_list, dtype=np.int16).astype(np.bool))
+            # if i == 305:
+            #    break
+            # i += 1
+
+        return (
+            left_pairs,
+            left_aug_pairs,
+            right_pairs,
+            right_aug_pairs,
+            np.array(is_same_list, dtype=np.int16).astype(np.bool),
+        )
 
     def load_lfw_pairs(self):
         """Loads the Labeled Faces in the Wild pairs from file.
@@ -550,8 +640,8 @@ class LFW(InputData):
             Numpy Array of the pairs, with shape [id_01, id_2, is_same].
         """
         pairs = []
-        path = Path().cwd().joinpath('validation', 'pairs_label.txt')
-        with path.open('r') as pairs_file:
+        path = Path().cwd().joinpath("validation", "pairs_label.txt")
+        with path.open("r") as pairs_file:
             for line in pairs_file.readlines()[1:]:
                 pair = line.strip().split()
                 _, id_01 = InputData.split_path(pair[0])
@@ -562,19 +652,19 @@ class LFW(InputData):
 
 class VggFace2(InputData):
     def __init__(
-            self,
-            mode: str,
-            remove_overlaps: bool = True,
-            sample_ids: bool = False,
-        ):
+        self,
+        mode: str,
+        remove_overlaps: bool = True,
+        sample_ids: bool = False,
+    ):
         super().__init__()
         self._mode = mode
         self._remove_overlaps = remove_overlaps
         self._sample_ids = sample_ids
         if self._sample_ids:
-            self._dataset_shape = 'iics'
+            self._dataset_shape = "iics"
         else:
-            self._dataset_shape = 'iic'
+            self._dataset_shape = "iic"
 
         if self._remove_overlaps:
             self._number_of_train_classes = 8069
@@ -584,25 +674,25 @@ class VggFace2(InputData):
             self._number_of_test_classes = 500
 
         self._serialized_features = {
-            'class_id': tf.io.FixedLenFeature([], tf.string),
-            'sample_id': tf.io.FixedLenFeature([], tf.string),
-            'image_low_resolution': tf.io.FixedLenFeature([], tf.string),
-            'image_high_resolution': tf.io.FixedLenFeature([], tf.string),
+            "class_id": tf.io.FixedLenFeature([], tf.string),
+            "sample_id": tf.io.FixedLenFeature([], tf.string),
+            "image_low_resolution": tf.io.FixedLenFeature([], tf.string),
+            "image_high_resolution": tf.io.FixedLenFeature([], tf.string),
         }
-        self._dataset_settings = parseConfigsFile(['dataset'])['vggface2_lr']
+        self._dataset_settings = parseConfigsFile(["dataset"])["vggface2_lr"]
         self._dataset_paths = [
-            self._dataset_settings['train_path'],
-            self._dataset_settings['test_path'],
+            self._dataset_settings["train_path"],
+            self._dataset_settings["test_path"],
         ]
         self._logger = super().get_logger()
-        self._class_pairs = super()._get_class_pairs('VGGFace2_LR', self._mode)
+        self._class_pairs = super()._get_class_pairs("VGGFace2_LR", self._mode)
         super().set_class_pairs(self._class_pairs)
         self._dataset = None
 
     def get_dataset(self):
-        self._logger.info(f' Loading VGGFace2_LR in {self._mode} mode.')
+        self._logger.info(f" Loading VGGFace2_LR in {self._mode} mode.")
         self._dataset = super().load_dataset(
-            'VGGFace2_LR',
+            "VGGFace2_LR",
             self._dataset_paths,
             self._decoding_function,
             self._mode,
@@ -612,17 +702,28 @@ class VggFace2(InputData):
         self._dataset = self._dataset.map(
             super()._convert_class_ids,
             num_parallel_calls=AUTOTUNE,
-            )
+        )
         return self._dataset
 
+    def _get_number_of_classes(self):
+        classes = set()
+        for _, _, class_id in self._dataset:
+            classes.add(class_id.numpy())
+
+        num_classes = len(classes)
+        print(num_classes)
+        return num_classes
+
     def get_number_of_classes(self) -> Union[int, Tuple[int]]:
-        if self._mode == 'train':
-            return self._number_of_train_classes
-        if self._mode == 'test':
-            return self._number_of_test_classes
-        if self._mode == 'concatenated':
-            return self._number_of_train_classes + self._number_of_test_classes
-        return self._number_of_train_classes, self._number_of_test_classes
+        #return 272
+        return 27
+        # if self._mode == "train":
+        #    return self._number_of_train_classes
+        # if self._mode == "test":
+        #    return self._number_of_test_classes
+        # if self._mode == "concatenated":
+        #    return self._number_of_train_classes + self._number_of_test_classes
+        # return self._number_of_train_classes, self._number_of_test_classes
 
     def get_dataset_size(self):
         return super()._get_dataset_size(self._dataset)
@@ -637,34 +738,40 @@ class VggFace2(InputData):
             self._serialized_features,
         )
         image_lr = super()._decode_raw_image(
-            deserialized_example['image_low_resolution'])
-        #image_lr.set_shape(image_shape)
+            deserialized_example["image_low_resolution"]
+        )
+        # image_lr.set_shape(image_shape)
         image_lr = tf.reshape(
             image_lr,
-            tf.stack([*super().get_preprocess_settings()['image_shape_low_resolution']]),
+            tf.stack(
+                [*super().get_preprocess_settings()["image_shape_low_resolution"]]
+            ),
         )
         image_hr = super()._decode_raw_image(
-            deserialized_example['image_high_resolution'])
+            deserialized_example["image_high_resolution"]
+        )
         image_hr = tf.reshape(
             image_hr,
-            tf.stack([*super().get_preprocess_settings()['image_shape_high_resolution']]),
+            tf.stack(
+                [*super().get_preprocess_settings()["image_shape_high_resolution"]]
+            ),
         )
 
-        class_id = super()._decode_string(deserialized_example['class_id'])
+        class_id = super()._decode_string(deserialized_example["class_id"])
         if self._sample_ids:
-            self._dataset_shape = 'iics'
-            sample_id = self._decode_string(deserialized_example['sample_id'])
+            self._dataset_shape = "iics"
+            sample_id = self._decode_string(deserialized_example["sample_id"])
             return image_lr, image_hr, class_id, sample_id
 
-        self._dataset_shape = 'iic'
+        self._dataset_shape = "iic"
         return image_lr, image_hr, class_id
 
     def augment_dataset(self):
-        self._logger.info(' Augmenting VggFace2_LR dataset.')
+        self._logger.info(" Augmenting VggFace2_LR dataset.")
         return super().augment_dataset(self._dataset, self.get_dataset_shape())
 
     def normalize_dataset(self):
-        self._logger.info(' Normalizing VggFace2_LR dataset.')
+        self._logger.info(" Normalizing VggFace2_LR dataset.")
         return self._dataset.map(
             lambda image_lr, image_hr, class_id: (
                 self.normalize_image(image_lr),
@@ -676,8 +783,8 @@ class VggFace2(InputData):
 
 
 def parseConfigsFile(
-        settings_list: List[str] = None,
-    ) -> Union[Dict, List[Dict]]:
+    settings_list: List[str] = None,
+) -> Union[Dict, List[Dict]]:
     """Loads settings from config YAML file.
 
     ### Parameters
@@ -688,8 +795,8 @@ def parseConfigsFile(
  otherwise returns the full file settings.
     """
     path = Path().cwd()
-    path = path.joinpath('config.yaml')
-    with path.open('r') as yaml_filestream:
+    path = path.joinpath("config.yaml")
+    with path.open("r") as yaml_filestream:
         settings = yaml.safe_load(yaml_filestream)
     if settings_list:
         returns = []
@@ -701,11 +808,11 @@ def parseConfigsFile(
 
 
 def load_json(path):
-    with Path(path).open('r') as json_file:
+    with Path(path).open("r") as json_file:
         return json.load(json_file)
 
 
 def load_resnet_config() -> List[Dict]:
-    path = Path().cwd().joinpath('models', 'resnet_config.txt')
+    path = Path().cwd().joinpath("models", "resnet_config.txt")
     configs = load_json(path)
-    return configs['network_config'], configs['layer_config']
+    return configs["network_config"], configs["layer_config"]

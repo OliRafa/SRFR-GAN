@@ -13,8 +13,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _predict(images_batch, images_aug_batch, model):
-    _, embeddings = model(images_batch, False, 'syn')
-    _, embeddings_augmented = model(images_aug_batch, False, 'syn')
+    _, embeddings = model(images_batch, training=False, input_type="syn")
+    _, embeddings_augmented = model(images_aug_batch, training=False, input_type="syn")
     embeddings = embeddings + embeddings_augmented
 
     if np.all(embeddings.numpy() == 0):
@@ -28,15 +28,14 @@ def _predict(images_batch, images_aug_batch, model):
             dtype=tf.float32,
         )
 
-    return normalize(embeddings, axis=1, name='lfw_normalize_embeddings')
+    return normalize(embeddings, axis=1, name="lfw_normalize_embeddings")
 
 
-def _predict_on_batch(strategy, model, dataset, dataset_augmented):
+def _predict_on_batch(strategy, model, dataset):
     embeddings = np.array([])
-    for images_batch, images_aug_batch in zip(dataset, dataset_augmented):
+    for images_batch, images_aug_batch in dataset:
         embedding_per_replica = strategy.experimental_run_v2(
-            _predict,
-            args=(images_batch, images_aug_batch, model)
+            _predict, args=(images_batch, images_aug_batch, model)
         )
         # `embedding_per_replica` is a tuple of EagerTensors, and each tensor
         # has a shape of [batch_size, 512], so we need to get each EagerTensor
@@ -57,8 +56,7 @@ def _predict_on_batch(strategy, model, dataset, dataset_augmented):
                 embeddings = tensor.numpy()
             else:
                 try:
-                    embeddings = np.concatenate((embeddings, tensor.numpy()),
-                                                axis=0)
+                    embeddings = np.concatenate((embeddings, tensor.numpy()), axis=0)
 
                 # Sometimes the outputted embedding array isn't in the shape of
                 # (batch_size, embedding_size), so we need to expand_dims
@@ -66,17 +64,20 @@ def _predict_on_batch(strategy, model, dataset, dataset_augmented):
                 # (1, embedding_size) before concatenatting with `embeddings`
                 except ValueError:
                     new_embeddings = np.expand_dims(tensor.numpy(), axis=0)
-                    embeddings = np.concatenate((embeddings, new_embeddings),
-                                                axis=0)
+                    embeddings = np.concatenate((embeddings, new_embeddings), axis=0)
 
     return embeddings
 
 
-def _get_embeddings(strategy, model, left_pairs, left_aug_pairs, right_pairs,
-                    right_aug_pairs, is_same_list):
-    left_pairs = _predict_on_batch(strategy, model, left_pairs, left_aug_pairs)
-    right_pairs = _predict_on_batch(strategy, model, right_pairs,
-                                    right_aug_pairs)
+def _get_embeddings(
+    strategy,
+    model,
+    left_pairs,
+    right_pairs,
+    is_same_list,
+):
+    left_pairs = _predict_on_batch(strategy, model, left_pairs)
+    right_pairs = _predict_on_batch(strategy, model, right_pairs)
 
     embeddings = []
     for left, right in zip(left_pairs, right_pairs):
@@ -86,8 +87,13 @@ def _get_embeddings(strategy, model, left_pairs, left_aug_pairs, right_pairs,
     return np.array(embeddings), is_same_list
 
 
-def validate_model_on_lfw(strategy, model, left_pairs, left_aug_pairs,
-                          right_pairs, right_aug_pairs, is_same_list) -> float:
+def validate_model_on_lfw(
+    strategy,
+    model,
+    left_pairs,
+    right_pairs,
+    is_same_list,
+) -> float:
     """Validates the given model on the Labeled Faces in the Wild dataset.
 
     ### Parameters
@@ -102,11 +108,15 @@ def validate_model_on_lfw(strategy, model, left_pairs, left_aug_pairs,
  Validation Standard Deviation, FAR, Area Under Curve (AUC) and Equal Error\
  Rate (EER).
     """
-    embeddings, is_same_list = _get_embeddings(strategy, model, left_pairs,
-                                               left_aug_pairs, right_pairs,
-                                               right_aug_pairs, is_same_list)
+    embeddings, is_same_list = _get_embeddings(
+        strategy,
+        model,
+        left_pairs,
+        right_pairs,
+        is_same_list,
+    )
 
     tpr, fpr, accuracy, val, val_std, far = evaluate(embeddings, is_same_list)
     auc = metrics.auc(fpr, tpr)
-    eer = brentq(lambda x: 1. - x - interpolate.interp1d(fpr, tpr)(x), 0., 1.)
+    eer = brentq(lambda x: 1.0 - x - interpolate.interp1d(fpr, tpr)(x), 0.0, 1.0)
     return np.mean(accuracy), np.std(accuracy), val, val_std, far, auc, eer
