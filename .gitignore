@@ -209,10 +209,10 @@ pip-selfcheck.json
 .vscode/launch.json
 .vscode/extensions.json
 extra/*
-logs/*
 train_logs.txt
-datasets/*
-training_checkpoints/*
-temp/*
 output.log
-data/keras/models/vgg19_weights_tf_dim_ordering_tf_kernels_notop.h5
+**/temp/*
+**/datasets/*
+**/training_checkpoints/*
+**/logs/*
+**/data/keras/models/*
