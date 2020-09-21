@@ -6,7 +6,6 @@ from tensorflow_addons.activations import mish
 
 from models.generator import GeneratorNetwork
 from models.resnet import ResNet
-from training.metrics import normalize
 
 policy = mixed_precision.Policy("mixed_float16")
 mixed_precision.set_policy(policy)

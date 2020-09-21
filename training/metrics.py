@@ -2,23 +2,33 @@ from functools import wraps
 
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.python.keras.utils.losses_utils import reduce_weighted_loss
 from tensorflow.keras.losses import (
     BinaryCrossentropy,
-    CategoricalCrossentropy,
-    MAE,
     MeanAbsoluteError,
-    MSE,
     MeanSquaredError,
     SparseCategoricalCrossentropy,
 )
 
 
-def distributed_sum_over_batch_size(function):
+def distributed_sum_over_batch_size(batch_size: int):
+    def _distributed_sum_over_batch_size(function):
+        @wraps(function)
+        def wrapper(*args, **kwargs):
+            output_tensor = function(*args, **kwargs)
+            return tf.nn.compute_average_loss(
+                output_tensor, global_batch_size=batch_size
+            )
+
+        return wrapper
+
+    return _distributed_sum_over_batch_size
+
+
+def distributed_mean(function):
     @wraps(function)
     def wrapper(*args, **kwargs):
-        loss_tensor = function(*args, **kwargs)
-        return reduce_weighted_loss(loss_tensor)
+        output_tensor = function(*args, **kwargs)
+        return tf.math.reduce_mean(output_tensor) / 2
 
     return wrapper
 
@@ -28,7 +38,7 @@ def apply_softmax(logits):
     return keras.activations.softmax(logits)
 
 
-@distributed_sum_over_batch_size
+@distributed_mean
 @tf.function
 def compute_l1_loss(fake_outputs, ground_truth):
     return MeanAbsoluteError(reduction=keras.losses.Reduction.NONE)(
@@ -36,6 +46,7 @@ def compute_l1_loss(fake_outputs, ground_truth):
     )
 
 
+@distributed_mean
 @tf.function
 def compute_binary_crossentropy(y_true, y_predicted) -> float:
     """Compute Binary Categorical Crossentropy.
@@ -48,7 +59,7 @@ def compute_binary_crossentropy(y_true, y_predicted) -> float:
         the computed loss.
     """
     return BinaryCrossentropy(
-        from_logits=True,
+        from_logits=False,
         reduction=keras.losses.Reduction.NONE,
     )(y_true, y_predicted)
 
@@ -72,7 +83,7 @@ def compute_categorical_crossentropy(logits, labels) -> float:
     )
 
 
-@distributed_sum_over_batch_size
+@distributed_mean
 @tf.function
 def compute_euclidean_distance(fake_outputs, ground_truth) -> float:
     return MeanSquaredError(reduction=keras.losses.Reduction.NONE)(
