@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # isort:skip
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # isort:skip
+import tensorflow as tf  # isort:skip
 
-import tensorflow as tf
 
 mocks_path = Path.cwd().joinpath("tests", "mocks")
 
@@ -17,7 +18,8 @@ def transform_to_tf_tensor(value, dtype=tf.float32):
 
 @pytest.fixture
 def batch_size():
-    return 4
+    # 4 is the Bathc Size Per GPU, and it's multiplied by 2 GPUs
+    return 4 * 2
 
 
 @pytest.fixture
@@ -40,6 +42,11 @@ def softmax_input_minimal():
 @pytest.fixture
 def zeros_array():
     return transform_to_tf_tensor([[0, 0, 0]])
+
+
+@pytest.fixture
+def l1_loss_output():
+    return transform_to_tf_tensor(3.5173749923706055)
 
 
 @pytest.fixture
@@ -78,13 +85,20 @@ def perceptual_loss():
 
 
 @pytest.fixture
+def perceptual_loss_distributed():
+    return transform_to_tf_tensor(0.005082819610834122)
+
+
+@pytest.fixture
 def generator_loss():
-    return transform_to_tf_tensor(0.7095396518707275)
+    return transform_to_tf_tensor(0.8455883264541626)
+    # return transform_to_tf_tensor(0.7095396518707275)
 
 
 @pytest.fixture
 def inner_generator_loss():
-    return transform_to_tf_tensor(0.700939416885376)
+    return transform_to_tf_tensor(0.836988091468811)
+    # return transform_to_tf_tensor(0.700939416885376)
 
 
 @pytest.fixture
@@ -94,7 +108,8 @@ def categorical_crossentropy():
 
 @pytest.fixture
 def joint_loss():
-    return transform_to_tf_tensor(8.796468734741211)
+    return transform_to_tf_tensor(8.796605110168457)
+    # return transform_to_tf_tensor(8.796468734741211)
 
 
 @pytest.fixture
@@ -122,6 +137,23 @@ def discriminator_gt_predictions():
 
 
 @pytest.fixture
+def vgg_output_fakes():
+    with mocks_path.joinpath("_compute_perceptual_loss", "fake.json").open("r") as obj:
+        return transform_to_tf_tensor(json.load(obj))
+
+
+@pytest.fixture
+def vgg_output_reals():
+    with mocks_path.joinpath("_compute_perceptual_loss", "real.json").open("r") as obj:
+        return transform_to_tf_tensor(json.load(obj))
+
+
+@pytest.fixture
+def vgg_euclidian_distance_output():
+    return transform_to_tf_tensor(5.08281946182251)
+
+
+@pytest.fixture
 def synthetic_face_recognition():
     with mocks_path.joinpath("_step_function", "embeddings.json").open(
         "r"
@@ -141,3 +173,38 @@ def synthetic_face_recognition():
     num_classes = 8529
 
     return (embeddings, predictions, ground_truth_classes, num_classes)
+
+
+@pytest.fixture
+def binary_crossentropy_zeros_like_input():
+    with mocks_path.joinpath("_generator_loss", "zeros_like.json").open("r") as obj:
+        return transform_to_tf_tensor(json.load(obj))
+
+
+@pytest.fixture
+def binary_crossentropy_softmax_input():
+    with mocks_path.joinpath("_generator_loss", "softmax.json").open("r") as obj:
+        return transform_to_tf_tensor(json.load(obj))
+
+
+@pytest.fixture
+def binary_crossentropy_output():
+    return transform_to_tf_tensor(0.2876819372177124)
+    # return transform_to_tf_tensor(0.8259393572807312)
+
+
+@pytest.fixture
+def binary_crossentropy_ones_like_input():
+    with mocks_path.joinpath("_generator_loss", "ones_like.json").open("r") as obj:
+        return transform_to_tf_tensor(json.load(obj))
+
+
+@pytest.fixture
+def binary_crossentropy_softmax_input2():
+    with mocks_path.joinpath("_generator_loss", "sr_softmax.json").open("r") as obj:
+        return transform_to_tf_tensor(json.load(obj))
+
+
+@pytest.fixture
+def binary_crossentropy_output2():
+    return transform_to_tf_tensor(1.3862942457199097)

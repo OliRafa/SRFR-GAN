@@ -29,8 +29,7 @@ def test_compute_joint_loss(
         None,
     )
 
-    # output = tf.multiply(output, 2)
-    assert output == joint_loss
+    assert output == joint_loss / 2
 
 
 def test__compute_generator_loss(
@@ -53,8 +52,7 @@ def test__compute_generator_loss(
         None,
     )
 
-    # output = tf.multiply(output, 2)
-    assert output == generator_loss
+    assert output == generator_loss / 2
 
 
 def test__compute_perceptual_loss(
@@ -64,14 +62,14 @@ def test__compute_perceptual_loss(
     margin,
     super_resolution_images,
     ground_truth_images,
-    perceptual_loss,
+    perceptual_loss_distributed,
 ):
     loss = instantiate_loss(batch_size, weight, scale, margin)
     output = loss._compute_perceptual_loss(
         super_resolution_images,
         ground_truth_images,
     )
-    assert output == perceptual_loss
+    assert output == perceptual_loss_distributed / 2
 
 
 def test__generator_loss(
@@ -89,7 +87,7 @@ def test__generator_loss(
     )
 
     # output = tf.multiply(output, 2)
-    assert output == inner_generator_loss
+    assert output == inner_generator_loss / 2
 
 
 def test__compute_categorical_crossentropy(
@@ -105,7 +103,7 @@ def test__compute_categorical_crossentropy(
         synthetic_face_recognition[1], synthetic_face_recognition[2]
     )
 
-    # output = tf.multiply(output, 2)
+    output = tf.multiply(output, 2)
     assert output == categorical_crossentropy
 
 
