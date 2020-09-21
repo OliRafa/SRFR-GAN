@@ -1,12 +1,15 @@
-from pathlib import Path
+import sys, os  # isort:skip
+
+sys.path.append(os.path.abspath("."))  # isort:skip
+
 import logging
+from pathlib import Path
 
 import cv2
 import tensorflow as tf
 
-from utils.timing import TimingLogger
 from utils.input_data import InputData, parseConfigsFile
-
+from utils.timing import TimingLogger
 
 logging.basicConfig(filename="vgg_to_tfrecords.txt", level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
@@ -16,12 +19,15 @@ timing.start()
 
 LOGGER.info("--- Setting Functions ---")
 
-shape = tuple(parseConfigsFile(["preprocess"])["image_shape_low_resolution"][:2])
+SHAPE = tuple(parseConfigsFile(["preprocess"])["image_shape_low_resolution"][:2])
+
+BASE_DATA_DIR = Path("/datasets/VGGFace2_LR/Images")
+BASE_OUTPUT_PATH = Path("/workspace/datasets/VGGFace2")
 
 
 def _reduce_resolution(high_resolution_image):
     low_resolution_image = cv2.cvtColor(
-        cv2.resize(high_resolution_image, shape, interpolation=cv2.INTER_CUBIC),
+        cv2.resize(high_resolution_image, SHAPE, interpolation=cv2.INTER_CUBIC),
         cv2.COLOR_BGR2RGB,
     )
     high_resolution_image = cv2.cvtColor(high_resolution_image, cv2.COLOR_BGR2RGB)
@@ -64,35 +70,32 @@ def preprocess_image(image_path):
     return image_example(low_resolution, high_resolution_image, class_id, sample_id)
 
 
+_NUM_IMAGES = 5000
+
 timing.start("test")
-data_dir = Path("/mnt/hdd_raid/datasets/VGGFace2_LR/Images/test")
-data_dir = list(data_dir.glob("*/*.jpg"))[:10]
+
+data_dir = list(BASE_DATA_DIR.joinpath("test").glob("*/*.jpg"))[:_NUM_IMAGES]
 partial = 1
-total = len(data_dir)
-PATH = (
-    "/mnt/hdd_raid/datasets/VGGFace2_LR/TFRecords/Test_Low_Resolution_PYTEST.tfrecords"
-)
-with tf.io.TFRecordWriter(PATH) as writer:
+output_path = str(BASE_OUTPUT_PATH.joinpath("Test_Low_Resolution_5k.tfrecords"))
+with tf.io.TFRecordWriter(output_path) as writer:
     for image in data_dir:
-        LOGGER.info(f" Test Image {partial}/{total}")
+        LOGGER.info(f" Test Image {partial}/{_NUM_IMAGES}")
         tf_example = preprocess_image(image)
         writer.write(tf_example.SerializeToString())
         partial += 1
+
 timing.end("test")
 
 timing.start("train")
-data_dir = Path("/mnt/hdd_raid/datasets/VGGFace2_LR/Images/train")
-data_dir = list(data_dir.glob("*/*.jpg"))[:10]
+
+data_dir = list(BASE_DATA_DIR.joinpath("train").glob("*/*.jpg"))[:_NUM_IMAGES]
 partial = 1
-total = len(data_dir)
-PATH = (
-    "/mnt/hdd_raid/datasets/VGGFace2_LR/TFRecords/Train_Low_Resolution_PYTEST.tfrecords"
-)
-with tf.io.TFRecordWriter(PATH) as writer:
+output_path = str(BASE_OUTPUT_PATH.joinpath("Train_Low_Resolution_5k.tfrecords"))
+with tf.io.TFRecordWriter(output_path) as writer:
     for image in data_dir:
-        LOGGER.info(f" Train Image {partial}/{total}")
+        LOGGER.info(f" Train Image {partial}/{_NUM_IMAGES}")
         tf_example = preprocess_image(image)
         writer.write(tf_example.SerializeToString())
         partial += 1
-timing.end("train")
 
+timing.end("train")
