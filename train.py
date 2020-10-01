@@ -23,7 +23,7 @@ from tensorflow_addons.optimizers import NovoGrad
 from models.discriminator import DiscriminatorNetwork
 from models.srfr import SRFR
 from services.losses import Loss
-from training.train import Train, generate_num_epochs
+from services.train import Train, generate_num_epochs
 from use_cases.train_model_use_case import TrainModelUseCase
 from utils.input_data import VggFace2, parseConfigsFile
 from utils.timing import TimingLogger
