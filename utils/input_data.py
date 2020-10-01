@@ -715,8 +715,8 @@ class VggFace2(InputData):
         return num_classes
 
     def get_number_of_classes(self) -> Union[int, Tuple[int]]:
-        #return 272
-        return 27
+        # return 272
+        # return 27
         # if self._mode == "train":
         #    return self._number_of_train_classes
         # if self._mode == "test":
@@ -724,6 +724,7 @@ class VggFace2(InputData):
         # if self._mode == "concatenated":
         #    return self._number_of_train_classes + self._number_of_test_classes
         # return self._number_of_train_classes, self._number_of_test_classes
+        return 9294
 
     def get_dataset_size(self):
         return super()._get_dataset_size(self._dataset)

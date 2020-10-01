@@ -1,34 +1,29 @@
 """Main training module for the Joint Learning Super Resolution Face\
  Recognition.
 """
+import tensorflow as tf  # isort:skip
+
+gpus = tf.config.experimental.list_physical_devices("GPU")  # isort:skip
+if gpus:  # isort:skip
+    try:  # isort:skip
+        for gpu in gpus:  # isort:skip
+            tf.config.experimental.set_memory_growth(gpu, True)  # isort:skip
+        print("set_memory_growth ok!")  # isort:skip
+    except RuntimeError as e:  # isort:skip
+        print("set_memory_growth failed!")  # isort:skip
+        print(str(e))  # isort:skip
+
 import datetime
 import logging
-from functools import partial
 from pathlib import Path
 
-import tensorflow as tf
-from tensorflow_addons.optimizers import NovoGrad
-
-gpus = tf.config.experimental.list_physical_devices("GPU")
-if gpus:
-    try:
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        print("set_memory_growth ok!")
-    except RuntimeError as e:
-        print("set_memory_growth failed!")
-        print(str(e))
-# tf.debugging.set_log_device_placement(True)
-from tensorflow import keras
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
+from tensorflow_addons.optimizers import NovoGrad
 
 from models.discriminator import DiscriminatorNetwork
 from models.srfr import SRFR
-from training.train import (
-    generate_num_epochs,
-    Train,
-)
-from utils.input_data import LFW, parseConfigsFile, VggFace2
+from training.train import Train, generate_num_epochs
+from utils.input_data import VggFace2, parseConfigsFile
 from utils.timing import TimingLogger
 
 # Importar Natural DS.
@@ -53,7 +48,9 @@ def main():
     # strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
     BATCH_SIZE = train_settings["batch_size"] * strategy.num_replicas_in_sync
     # BATCH_SIZE = train_settings["batch_size"] * 2
-    temp_folder = Path.cwd().joinpath("temp", "synthetic_ds")
+    temp_folder = Path.cwd().joinpath(
+        "data", "temp", "train_dataset", "synthetic_dataset"
+    )
 
     LOGGER.info(" -------- Importing Datasets --------")
 
@@ -63,37 +60,14 @@ def main():
     synthetic_dataset = vgg_dataset.normalize_dataset()
     synthetic_dataset = synthetic_dataset.cache(str(temp_folder))
     # synthetic_dataset_len = vgg_dataset.get_dataset_size()
-    synthetic_dataset_len = 200_000
+    synthetic_dataset_len = 20_000
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_dataset = (
         synthetic_dataset.shuffle(buffer_size=2_048).repeat().batch(BATCH_SIZE)
     )
 
-    lfw_path = Path.cwd().joinpath("temp", "lfw")
-    lfw_dataset = LFW()
-    (
-        left_pairs,
-        left_aug_pairs,
-        right_pairs,
-        right_aug_pairs,
-        is_same_list,
-    ) = lfw_dataset.get_dataset()
-    left_pairs = left_pairs.batch(BATCH_SIZE).cache(str(lfw_path.joinpath("left")))
-    left_aug_pairs = left_aug_pairs.batch(BATCH_SIZE).cache(
-        str(lfw_path.joinpath("left_aug"))
-    )
-    right_pairs = right_pairs.batch(BATCH_SIZE).cache(str(lfw_path.joinpath("right")))
-    right_aug_pairs = right_aug_pairs.batch(BATCH_SIZE).cache(
-        str(lfw_path.joinpath("right_aug"))
-    )
-    # left_pairs = left_aug_pairs = right_pairs = right_aug_pairs = is_same_list = None
-
     # Using `distribute_dataset` to distribute the batches across the GPUs
     synthetic_dataset = strategy.experimental_distribute_dataset(synthetic_dataset)
-    left_pairs = strategy.experimental_distribute_dataset(left_pairs)
-    left_aug_pairs = strategy.experimental_distribute_dataset(left_aug_pairs)
-    right_pairs = strategy.experimental_distribute_dataset(right_pairs)
-    right_aug_pairs = strategy.experimental_distribute_dataset(right_aug_pairs)
 
     LOGGER.info(" -------- Creating Models and Optimizers --------")
 
@@ -103,6 +77,81 @@ def main():
         BATCH_SIZE,
     )
 
+    (
+        srfr_model,
+        discriminator_model,
+        srfr_optimizer,
+        discriminator_optimizer,
+    ) = _instantiate_models(
+        strategy,
+        network_settings,
+        train_settings,
+        preprocess_settings,
+        synthetic_num_classes,
+    )
+
+    checkpoint, manager = _create_checkpoint_and_manager(
+        srfr_model, discriminator_model, srfr_optimizer, discriminator_optimizer
+    )
+
+    train_summary_writer = _create_summary_writer()
+
+    LOGGER.info(" -------- Starting Training --------")
+    with strategy.scope():
+        checkpoint.restore(manager.latest_checkpoint)
+        if manager.latest_checkpoint:
+            LOGGER.info(f" Restored from {manager.latest_checkpoint}")
+        else:
+            LOGGER.info(" Initializing from scratch.")
+
+    train = Train(
+        strategy,
+        srfr_model,
+        srfr_optimizer,
+        discriminator_model,
+        discriminator_optimizer,
+        train_summary_writer,
+        checkpoint,
+        manager,
+        TimingLogger(),
+    )
+
+    for epoch in range(int(checkpoint.epoch), EPOCHS + 1):
+        timing.start(Train.__name__)
+        LOGGER.info(f" Start of epoch {epoch}")
+
+        srfr_loss, discriminator_loss = train.train_srfr_model(
+            BATCH_SIZE,
+            synthetic_dataset,
+            synthetic_num_classes,
+            sr_weight=train_settings["super_resolution_weight"],
+            scale=train_settings["scale"],
+            margin=train_settings["angular_margin"],
+            # natural_ds,
+            # num_classes_natural,
+        )
+        elapsed_time = timing.end(Train.__name__, True)
+        with train_summary_writer.as_default():
+            tf.summary.scalar("training_time_per_epoch", elapsed_time, step=epoch)
+        LOGGER.info(
+            (
+                f" Epoch {epoch}, SRFR Loss: {srfr_loss:.3f},"
+                f" Discriminator Loss: {discriminator_loss:.3f}"
+            )
+        )
+
+        train.save_model()
+
+        checkpoint.epoch.assign_add(1)
+
+
+def _instantiate_models(
+    strategy,
+    network_settings,
+    train_settings,
+    preprocess_settings,
+    synthetic_num_classes,
+):
     with strategy.scope():
         srfr_model = SRFR(
             num_filters=network_settings["num_filters"],
@@ -115,7 +164,7 @@ def main():
             input_shape=preprocess_settings["image_shape_low_resolution"],
             num_classes_syn=synthetic_num_classes,
         )
-        sr_discriminator_model = DiscriminatorNetwork()
+        discriminator_model = DiscriminatorNetwork()
 
         srfr_optimizer = NovoGrad(
             learning_rate=train_settings["learning_rate"],
@@ -138,85 +187,41 @@ def main():
         discriminator_optimizer = mixed_precision.LossScaleOptimizer(
             discriminator_optimizer, loss_scale="dynamic"
         )
-        train_loss = partial(
-            strategy.reduce,
-            reduce_op=tf.distribute.ReduceOp.MEAN,
-            axis=0,
-        )
-    #
 
+    return (
+        srfr_model,
+        discriminator_model,
+        srfr_optimizer,
+        discriminator_optimizer,
+    )
+
+
+def _create_checkpoint_and_manager(
+    srfr_model, discriminator_model, srfr_optimizer, discriminator_optimizer
+):
     checkpoint = tf.train.Checkpoint(
         epoch=tf.Variable(1),
-        step=tf.Variable(1),
+        step=tf.Variable(1, dtype=tf.int64),
         srfr_model=srfr_model,
-        sr_discriminator_model=sr_discriminator_model,
+        discriminator_model=discriminator_model,
         srfr_optimizer=srfr_optimizer,
         discriminator_optimizer=discriminator_optimizer,
     )
     manager = tf.train.CheckpointManager(
-        checkpoint, directory="./training_checkpoints", max_to_keep=5
+        checkpoint,
+        directory=str(Path.cwd().joinpath("data", "training_checkpoints")),
+        max_to_keep=5,
     )
+    return checkpoint, manager
 
+
+def _create_summary_writer():
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    train_summary_writer = tf.summary.create_file_writer(
-        str(Path.cwd().joinpath("logs", "gradient_tape", current_time, "train")),
+    return tf.summary.create_file_writer(
+        str(
+            Path.cwd().joinpath("data", "logs", "gradient_tape", current_time, "train")
+        ),
     )
-    test_summary_writer = tf.summary.create_file_writer(
-        str(Path.cwd().joinpath("logs", "gradient_tape", current_time, "test")),
-    )
-
-    LOGGER.info(" -------- Starting Training --------")
-    with strategy.scope():
-        checkpoint.restore(manager.latest_checkpoint)
-        if manager.latest_checkpoint:
-            LOGGER.info(f" Restored from {manager.latest_checkpoint}")
-        else:
-            LOGGER.info(" Initializing from scratch.")
-
-        for epoch in range(int(checkpoint.epoch), EPOCHS + 1):
-            timing.start(Train.__name__)
-            LOGGER.info(f" Start of epoch {epoch}")
-
-            train = Train(
-                strategy,
-                srfr_model,
-                srfr_optimizer,
-                sr_discriminator_model,
-                discriminator_optimizer,
-                train_summary_writer,
-                test_summary_writer,
-                checkpoint,
-                manager,
-            )
-            srfr_loss, discriminator_loss = train.train_srfr_model(
-                BATCH_SIZE,
-                train_loss,
-                synthetic_dataset,
-                synthetic_num_classes,
-                left_pairs,
-                left_aug_pairs,
-                right_pairs,
-                right_aug_pairs,
-                is_same_list,
-                sr_weight=train_settings["super_resolution_weight"],
-                scale=train_settings["scale"],
-                margin=train_settings["angular_margin"],
-                # natural_ds,
-                # num_classes_natural,
-            )
-            elapsed_time = timing.end(Train.__name__, True)
-            with train_summary_writer.as_default():
-                tf.summary.scalar("training_time_per_epoch", elapsed_time, step=epoch)
-            LOGGER.info(
-                (
-                    f" Epoch {epoch}, SRFR Loss: {srfr_loss:.3f},"
-                    f" Discriminator Loss: {discriminator_loss:.3f}"
-                )
-            )
-
-            train.save_model()
-
-            checkpoint.epoch.assign_add(1)
 
 
 if __name__ == "__main__":

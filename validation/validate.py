@@ -34,7 +34,7 @@ def _predict(images_batch, images_aug_batch, model):
 def _predict_on_batch(strategy, model, dataset):
     embeddings = np.array([])
     for images_batch, images_aug_batch in dataset:
-        embedding_per_replica = strategy.experimental_run_v2(
+        embedding_per_replica = strategy.run(
             _predict, args=(images_batch, images_aug_batch, model)
         )
         # `embedding_per_replica` is a tuple of EagerTensors, and each tensor

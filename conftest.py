@@ -1,8 +1,14 @@
+import datetime
 import json
 import os
 from pathlib import Path
 
 import pytest
+
+from services.losses import Loss
+from services.train import Train
+from train import _create_checkpoint_and_manager, _instantiate_models
+from utils.input_data import VggFace2, parseConfigsFile
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # isort:skip
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # isort:skip
@@ -208,3 +214,79 @@ def binary_crossentropy_softmax_input2():
 @pytest.fixture
 def binary_crossentropy_output2():
     return transform_to_tf_tensor(1.3862942457199097)
+
+
+@pytest.fixture
+def summary_writer():
+    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    return tf.summary.create_file_writer(
+        str(Path.cwd().joinpath("tests", "logs_unit_test", current_time, "train")),
+    )
+
+
+@pytest.fixture
+def instantiate_training(summary_writer) -> Train:
+    strategy = tf.distribute.OneDeviceStrategy("/cpu:0")
+    network_settings, train_settings, preprocess_settings = parseConfigsFile(
+        ["network", "train", "preprocess"]
+    )
+    BATCH_SIZE = train_settings["batch_size"] * strategy.num_replicas_in_sync
+    synthetic_num_classes = VggFace2(mode="concatenated").get_number_of_classes()
+    (
+        srfr_model,
+        discriminator_model,
+        srfr_optimizer,
+        discriminator_optimizer,
+    ) = _instantiate_models(
+        strategy,
+        network_settings,
+        train_settings,
+        preprocess_settings,
+        synthetic_num_classes,
+    )
+    checkpoint, manager = _create_checkpoint_and_manager(
+        srfr_model, discriminator_model, srfr_optimizer, discriminator_optimizer
+    )
+    loss = Loss(
+        BATCH_SIZE,
+        summary_writer,
+        train_settings["super_resolution_weight"],
+        train_settings["scale"],
+        train_settings["angular_margin"],
+    )
+    # TrainModelUseCase(
+    #    strategy, loss, summary_writer, None, None, checkpoint, manager
+    # )._try_restore_checkpoint()
+    return Train(
+        strategy,
+        srfr_model,
+        srfr_optimizer,
+        discriminator_model,
+        discriminator_optimizer,
+        summary_writer,
+        checkpoint,
+        manager,
+        loss,
+    )
+
+
+@pytest.fixture
+def train_01():
+    with mocks_path.joinpath("services", "train", "syn_images_02.json").open(
+        "r"
+    ) as obj:
+        low_resolution_batch = transform_to_tf_tensor(json.load(obj))
+
+    with mocks_path.joinpath("services", "train", "groud_truth_images_02.json").open(
+        "r"
+    ) as obj:
+        groud_truth_images = transform_to_tf_tensor(json.load(obj))
+
+    with mocks_path.joinpath("services", "train", "syn_classes_02.json").open(
+        "r"
+    ) as obj:
+        syn_classes = transform_to_tf_tensor(json.load(obj))
+
+    step = 17002
+
+    return low_resolution_batch, groud_truth_images, syn_classes, step

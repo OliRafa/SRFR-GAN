@@ -1,13 +1,14 @@
 import tensorflow as tf
 
-from training.losses import Loss
+from services.losses import Loss
 
 
-def instantiate_loss(batch_size, weight, scale, margin):
-    return Loss(None, batch_size, None, weight, scale, margin)
+def instantiate_loss(batch_size, summary_writer, weight, scale, margin):
+    return Loss(batch_size, summary_writer, weight, scale, margin)
 
 
 def test_compute_joint_loss(
+    summary_writer,
     batch_size,
     weight,
     scale,
@@ -19,13 +20,14 @@ def test_compute_joint_loss(
     synthetic_face_recognition,
     joint_loss,
 ):
-    loss = instantiate_loss(batch_size, weight, scale, margin)
+    loss = instantiate_loss(batch_size, summary_writer, weight, scale, margin)
     output = loss.compute_joint_loss(
         super_resolution_images,
         ground_truth_images,
         discriminator_sr_predictions,
         discriminator_gt_predictions,
         synthetic_face_recognition,
+        1,
         None,
     )
 
@@ -33,6 +35,7 @@ def test_compute_joint_loss(
 
 
 def test__compute_generator_loss(
+    summary_writer,
     batch_size,
     weight,
     scale,
@@ -43,19 +46,20 @@ def test__compute_generator_loss(
     discriminator_gt_predictions,
     generator_loss,
 ):
-    loss = instantiate_loss(batch_size, weight, scale, margin)
+    loss = instantiate_loss(batch_size, summary_writer, weight, scale, margin)
     output = loss._compute_generator_loss(
         super_resolution_images,
         ground_truth_images,
         discriminator_sr_predictions,
         discriminator_gt_predictions,
-        None,
+        1,
     )
 
     assert output == generator_loss / 2
 
 
 def test__compute_perceptual_loss(
+    summary_writer,
     batch_size,
     weight,
     scale,
@@ -64,7 +68,7 @@ def test__compute_perceptual_loss(
     ground_truth_images,
     perceptual_loss_distributed,
 ):
-    loss = instantiate_loss(batch_size, weight, scale, margin)
+    loss = instantiate_loss(batch_size, summary_writer, weight, scale, margin)
     output = loss._compute_perceptual_loss(
         super_resolution_images,
         ground_truth_images,
@@ -73,6 +77,7 @@ def test__compute_perceptual_loss(
 
 
 def test__generator_loss(
+    summary_writer,
     batch_size,
     weight,
     scale,
@@ -81,7 +86,7 @@ def test__generator_loss(
     discriminator_gt_predictions,
     inner_generator_loss,
 ):
-    loss = instantiate_loss(batch_size, weight, scale, margin)
+    loss = instantiate_loss(batch_size, summary_writer, weight, scale, margin)
     output = loss._generator_loss(
         discriminator_sr_predictions, discriminator_gt_predictions
     )
@@ -91,6 +96,7 @@ def test__generator_loss(
 
 
 def test__compute_categorical_crossentropy(
+    summary_writer,
     batch_size,
     weight,
     scale,
@@ -98,7 +104,7 @@ def test__compute_categorical_crossentropy(
     synthetic_face_recognition,
     categorical_crossentropy,
 ):
-    loss = instantiate_loss(batch_size, weight, scale, margin)
+    loss = instantiate_loss(batch_size, summary_writer, weight, scale, margin)
     output = loss._compute_categorical_crossentropy(
         synthetic_face_recognition[1], synthetic_face_recognition[2]
     )
