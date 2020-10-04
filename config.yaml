@@ -16,10 +16,10 @@ network:
 # Settings for trainnig
 train:
   batch_size: 16
-  learning_rate: 1.e-3
-  momentum: 0.4
-  beta_2: 0.999
-  weight_decay: 5.0e-4
+  learning_rate: 7.e-3
+  momentum: 0.9
+  beta_2: 0.25
+  weight_decay: 2.0e-4
   #weight_decay: 0.0
   iterations: 50_000
   super_resolution_weight: 1.e-3
