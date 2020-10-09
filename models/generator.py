@@ -138,32 +138,14 @@ class GeneratorNetwork(Model):
         self._upsampling_1 = Conv2DTranspose(
             filters=num_filters,
             kernel_size=[3, 3],
-            strides=[1, 1],
+            strides=[2, 2],
             padding="same",
-        )
-        self._upsampling_conv_1 = Conv2D(
-            filters=num_filters,
-            kernel_size=(3, 3),
-            strides=1,
-            padding="same",
-            name="conv_upsampling_1",
-            activation=mish,
-            kernel_initializer="he_uniform",
         )
         self._upsampling_2 = Conv2DTranspose(
             filters=num_filters,
             kernel_size=[3, 3],
-            strides=[1, 1],
+            strides=[2, 2],
             padding="same",
-        )
-        self._upsampling_conv_2 = Conv2D(
-            filters=num_filters,
-            kernel_size=(3, 3),
-            strides=1,
-            padding="same",
-            name="conv_upsampling_2",
-            activation=mish,
-            kernel_initializer="he_uniform",
         )
         self._high_resolution_conv = Conv2D(
             filters=num_filters,
@@ -215,9 +197,7 @@ class GeneratorNetwork(Model):
         fea = Add()([input_tensor, trunk])
 
         fea = self._upsampling_1(fea)
-        fea = self._upsampling_conv_1(fea)
         fea = self._upsampling_2(fea)
-        fea = self._upsampling_conv_2(fea)
 
         fea = self._high_resolution_conv(fea)
         return self._last_conv(fea)
