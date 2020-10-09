@@ -60,7 +60,9 @@ def main():
     synthetic_dataset = vgg_dataset.get_dataset()
     synthetic_dataset = vgg_dataset.augment_dataset()
     synthetic_dataset = vgg_dataset.normalize_dataset()
-    synthetic_dataset = synthetic_dataset.cache()  # str(temp_folder))
+    synthetic_dataset = synthetic_dataset.cache().prefetch(
+        AUTOTUNE
+    )  # str(temp_folder))
     # synthetic_dataset_len = vgg_dataset.get_dataset_size()
     synthetic_dataset_len = 20_000
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
