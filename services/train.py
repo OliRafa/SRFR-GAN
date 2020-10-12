@@ -64,40 +64,37 @@ class Train:
         batch_size,
         dataset,
     ) -> float:
-        i = 0
         for (
             synthetic_images,
             groud_truth_images,
             synthetic_classes,
         ) in dataset:
-            if i < 93:
-                i += 1
-            else:
-                (
-                    srfr_loss,
-                    discriminator_loss,
-                    super_resolution_images,
-                ) = self._train_step_synthetic_only(
-                    synthetic_images,
-                    groud_truth_images,
-                    synthetic_classes,
-                    self.checkpoint.step,
-                )
+            (
+                srfr_loss,
+                discriminator_loss,
+                super_resolution_images,
+            ) = self._train_step_synthetic_only(
+                synthetic_images,
+                groud_truth_images,
+                synthetic_classes,
+                self.checkpoint.step,
+            )
 
-                if int(self.checkpoint.step) % 1000 == 0:
-                    self.save_model()
+            if int(self.checkpoint.step) % 1000 == 0:
+                self.save_model()
 
-                self._save_metrics(
-                    self.checkpoint.step,
-                    srfr_loss,
-                    discriminator_loss,
-                    batch_size,
-                    synthetic_images,
-                    groud_truth_images,
-                    super_resolution_images,
-                )
-                self.checkpoint.step.assign_add(1)
+            self._save_metrics(
+                self.checkpoint.step,
+                srfr_loss,
+                discriminator_loss,
+                batch_size,
+                synthetic_images,
+                groud_truth_images,
+                super_resolution_images,
+            )
+            self.checkpoint.step.assign_add(1)
 
+    @tf.function
     def _save_metrics(
         self,
         step,
@@ -109,21 +106,21 @@ class Train:
         super_resolution_images,
     ) -> None:
         step = int(self.checkpoint.step)
-        batch_size = int(batch_size)
+        # batch_size = int(batch_size)
 
-        LOGGER.info(
-            (
-                f" SRFR Training loss (for one batch) at step {step}:"
-                f" {float(srfr_loss):.3f}"
-            )
-        )
-        LOGGER.info(
-            (
-                f" Discriminator loss (for one batch) at step {step}:"
-                f" {float(discriminator_loss):.3f}"
-            )
-        )
-        LOGGER.info(f" Seen so far: {step * batch_size} samples")
+        # LOGGER.info(
+        #    (
+        #        f" SRFR Training loss (for one batch) at step {step}:"
+        #        f" {float(srfr_loss):.3f}"
+        #    )
+        # )
+        # LOGGER.info(
+        #    (
+        #        f" Discriminator loss (for one batch) at step {step}:"
+        #        f" {float(discriminator_loss):.3f}"
+        #    )
+        # )
+        # LOGGER.info(f" Seen so far: {step * batch_size} samples")
 
         with self.train_summary_writer.as_default():
             tf.summary.scalar(
@@ -164,7 +161,7 @@ class Train:
             )
         )
 
-    # @tf.function
+    @tf.function
     def _step_function(
         self, low_resolution_batch, groud_truth_batch, ground_truth_classes, step
     ):
@@ -187,7 +184,7 @@ class Train:
                 discriminator_sr_predictions,
                 discriminator_gt_predictions,
                 synthetic_face_recognition,
-                # step,
+                step,
             )
             discriminator_loss = self.losses.compute_discriminator_loss(
                 discriminator_sr_predictions,
@@ -225,7 +222,7 @@ class Train:
         )
         return srfr_loss, discriminator_loss, super_resolution_images
 
-    # @tf.function
+    @tf.function
     def _train_step_synthetic_only(
         self,
         synthetic_images,
@@ -266,4 +263,5 @@ class Train:
             discriminator_loss,
             None,
         )
+
         return new_srfr_loss, new_discriminator_loss, super_resolution_images

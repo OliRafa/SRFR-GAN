@@ -82,9 +82,8 @@ class TrainModelUseCase:
         with self.strategy.scope():
             self.checkpoint.restore(self.checkpoint_manager.latest_checkpoint)
             if self.checkpoint_manager.latest_checkpoint:
-                ...
-                # self.logger.info(
-                #    f" Restored from {self.checkpoint_manager.latest_checkpoint}"
-                # )
+                self.logger.info(
+                    f" Restored from {self.checkpoint_manager.latest_checkpoint}"
+                )
             else:
                 self.logger.info(" Initializing from scratch.")
