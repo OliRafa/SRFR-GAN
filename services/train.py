@@ -94,7 +94,6 @@ class Train:
             )
             self.checkpoint.step.assign_add(1)
 
-    @tf.function
     def _save_metrics(
         self,
         step,
@@ -106,21 +105,21 @@ class Train:
         super_resolution_images,
     ) -> None:
         step = int(self.checkpoint.step)
-        # batch_size = int(batch_size)
+        batch_size = int(batch_size)
 
-        # LOGGER.info(
-        #    (
-        #        f" SRFR Training loss (for one batch) at step {step}:"
-        #        f" {float(srfr_loss):.3f}"
-        #    )
-        # )
-        # LOGGER.info(
-        #    (
-        #        f" Discriminator loss (for one batch) at step {step}:"
-        #        f" {float(discriminator_loss):.3f}"
-        #    )
-        # )
-        # LOGGER.info(f" Seen so far: {step * batch_size} samples")
+        LOGGER.info(
+            (
+                f" SRFR Training loss (for one batch) at step {step}:"
+                f" {float(srfr_loss):.3f}"
+            )
+        )
+        LOGGER.info(
+            (
+                f" Discriminator loss (for one batch) at step {step}:"
+                f" {float(discriminator_loss):.3f}"
+            )
+        )
+        LOGGER.info(f" Seen so far: {step * batch_size} samples")
 
         with self.train_summary_writer.as_default():
             tf.summary.scalar(
