@@ -76,14 +76,14 @@ class Loss:
             [gt_relativistic_average, sr_relativistic_average], name="generator_loss"
         )
 
-    @tf.function
+    # @tf.function
     def _compute_generator_loss(
         self,
         super_resolution,
         ground_truth,
         discriminator_sr_predictions,
         discriminator_gt_predictions,
-        # step,
+        step,
     ) -> float:
         perceptual_loss = self._compute_perceptual_loss(super_resolution, ground_truth)
         generator_loss = self._generator_loss(
@@ -91,22 +91,22 @@ class Loss:
         )
         l1_loss = self.weight * compute_l1_loss(super_resolution, ground_truth)
 
-        # with self.train_summary_writer.as_default():
-        #    tf.summary.scalar(
-        #        "Perceptual Loss",
-        #        perceptual_loss,
-        #        step=step,
-        #    )
-        #    tf.summary.scalar(
-        #        "Generator Loss",
-        #        generator_loss,
-        #        step=step,
-        #    )
-        #    tf.summary.scalar(
-        #        "L1 Loss",
-        #        l1_loss,
-        #        step=step,
-        #    )
+        with self.train_summary_writer.as_default():
+            tf.summary.scalar(
+                "Perceptual Loss",
+                perceptual_loss,
+                step=step,
+            )
+            tf.summary.scalar(
+                "Generator Loss",
+                generator_loss,
+                step=step,
+            )
+            tf.summary.scalar(
+                "L1 Loss",
+                l1_loss,
+                step=step,
+            )
 
         return tf.math.reduce_sum(
             [perceptual_loss, generator_loss, l1_loss], name="sr_loss"
@@ -151,7 +151,7 @@ class Loss:
         discriminator_sr_predictions,
         discriminator_gt_predictions,
         synthetic_face_recognition,
-        # step,
+        step,
         natural_face_recognition=None,
     ) -> float:
         """Computes the Joint Loss for Super Resolution Face Recognition, using\
@@ -179,7 +179,7 @@ class Loss:
             ground_truth_images,
             discriminator_sr_predictions,
             discriminator_gt_predictions,
-            # step,
+            step,
         )
         synthetic_face_recognition_loss = self._compute_categorical_crossentropy(
             synthetic_face_recognition[1],
@@ -193,17 +193,17 @@ class Loss:
             fr_loss = synthetic_face_recognition_loss + natural_face_recognition_loss
             return fr_loss + self.weight * super_resolution_loss
 
-        # with self.train_summary_writer.as_default():
-        #    tf.summary.scalar(
-        #        "SR Generator",
-        #        super_resolution_loss,
-        #        step=step,
-        #    )
-        #    tf.summary.scalar(
-        #        "CrossEntropy",
-        #        synthetic_face_recognition_loss,
-        #        step=step,
-        #    )
+        with self.train_summary_writer.as_default():
+            tf.summary.scalar(
+                "SR Generator",
+                super_resolution_loss,
+                step=step,
+            )
+            tf.summary.scalar(
+                "CrossEntropy",
+                synthetic_face_recognition_loss,
+                step=step,
+            )
 
         return synthetic_face_recognition_loss + self.weight * super_resolution_loss
 
