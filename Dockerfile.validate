@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-setuptools && apt-get clean
 
-RUN python3 -m pip install --upgrade pip && python3 -m pip install PyYAML scipy scikit-learn tqdm tensorflow-addons==0.9.0
+RUN python3 -m pip install --upgrade pip && python3 -m pip install PyYAML scipy scikit-learn tqdm tensorflow-addons==0.10.0
 
 WORKDIR /app
 ADD . /app

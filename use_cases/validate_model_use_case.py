@@ -1,10 +1,9 @@
-from pathlib import Path
-
 import tensorflow as tf
-
 from utils.input_data import LFW
 from utils.timing import TimingLogger
 from validation.validate import validate_model_on_lfw
+
+AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
 class ValidateModelUseCase:
@@ -13,9 +12,6 @@ class ValidateModelUseCase:
         self.timing = timing
         self.test_summary_writer = test_summary_writer
         self.logger = logger
-        self.CACHE_PATH = Path.cwd().joinpath("data", "temp", "lfw")
-        if not self.CACHE_PATH.is_dir():
-            self.CACHE_PATH.mkdir(parents=True)
 
     def execute(self, model, BATCH_SIZE: int, checkpoint):
         left_pairs, right_pairs, is_same_list = self._instantiate_dataset(BATCH_SIZE)
@@ -52,14 +48,10 @@ class ValidateModelUseCase:
     def _instantiate_dataset(self, BATCH_SIZE: int):
         lfw = LFW()
         left_pairs, right_pairs, is_same_list = lfw.get_dataset()
-        left_pairs = left_pairs.batch(BATCH_SIZE).cache(
-            str(self.CACHE_PATH.joinpath("left"))
-        )
+        left_pairs = left_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
         left_pairs = self.strategy.experimental_distribute_dataset(left_pairs)
 
-        right_pairs = right_pairs.batch(BATCH_SIZE).cache(
-            str(self.CACHE_PATH.joinpath("right"))
-        )
+        right_pairs = right_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
         right_pairs = self.strategy.experimental_distribute_dataset(right_pairs)
 
         return left_pairs, right_pairs, is_same_list
