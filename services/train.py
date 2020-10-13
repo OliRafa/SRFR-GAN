@@ -19,22 +19,6 @@ def generate_num_epochs(iterations, len_dataset, batch_size):
     return epochs
 
 
-@tf.function
-def adjust_learning_rate(current_learning_rate: float, epoch: int = 1) -> float:
-    """Adjusts learning rate based on the current value and a giving epoch.
-
-    ### Parameters
-        current_learning_rate: Current value for the learning rate.
-        epoch: Epoch number.
-
-    ### Returns
-        New value for the learning rate.
-    """
-    if epoch % 4 == 0:
-        return current_learning_rate / 10
-    return current_learning_rate
-
-
 class Train:
     def __init__(
         self,
