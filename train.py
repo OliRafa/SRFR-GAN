@@ -218,7 +218,7 @@ def _create_summary_writer(strategy):
         return tf.summary.create_file_writer(
             str(
                 Path.cwd().joinpath(
-                    "data", "logs", "test", "gradient_tape", current_time, "train"
+                    "data", "logs", "gradient_tape", current_time, "train"
                 )
             ),
         )
