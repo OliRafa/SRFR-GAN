@@ -1,3 +1,30 @@
+## 1.9.0 (2020-10-12)
+
+### Fix
+
+- **save_metrics**: correct saving to logger file
+
+### Feat
+
+- **visualization**: add more info about loss function on tensorboard
+
+## 1.8.1 (2020-10-09)
+
+### Fix
+
+- **models**: fix sr output size
+
+## 1.8.0 (2020-10-09)
+
+### Feat
+
+- **models**: change UpSampling2D to Conv2DTranspose on generator
+- **hyperparameters**: change lr, momentum, beta_2 and weight_decay
+
+### Fix
+
+- correct train path, from training to services
+
 ## 1.7.0 (2020-10-04)
 
 ### Feat

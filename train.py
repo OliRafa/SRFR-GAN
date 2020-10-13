@@ -102,7 +102,7 @@ def main():
         srfr_model, discriminator_model, srfr_optimizer, discriminator_optimizer
     )
 
-    train_summary_writer = _create_summary_writer()
+    train_summary_writer = _create_summary_writer(strategy)
 
     loss = Loss(
         BATCH_SIZE,
@@ -212,13 +212,16 @@ def _create_checkpoint_and_manager(
     return checkpoint, manager
 
 
-def _create_summary_writer():
-    current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    return tf.summary.create_file_writer(
-        str(
-            Path.cwd().joinpath("data", "logs", "gradient_tape", current_time, "train")
-        ),
-    )
+def _create_summary_writer(strategy):
+    with strategy.scope():
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        return tf.summary.create_file_writer(
+            str(
+                Path.cwd().joinpath(
+                    "data", "logs", "test", "gradient_tape", current_time, "train"
+                )
+            ),
+        )
 
 
 if __name__ == "__main__":
