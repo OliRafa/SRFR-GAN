@@ -17,6 +17,7 @@ network:
 train:
   batch_size: 16
   learning_rate: 7.e-3
+  learning_rate_decay_steps: 1000
   momentum: 0.9
   beta_2: 0.25
   weight_decay: 2.0e-4

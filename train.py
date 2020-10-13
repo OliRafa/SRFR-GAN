@@ -1,6 +1,8 @@
 """Main training module for the Joint Learning Super Resolution Face\
  Recognition.
 """
+from typing import Dict
+
 import tensorflow as tf  # isort:skip
 
 gpus = tf.config.experimental.list_physical_devices("GPU")  # isort:skip
@@ -81,6 +83,7 @@ def main():
         BATCH_SIZE,
     )
 
+    learning_rate_scheduler = _instantiate_learning_rate(train_settings)
     (
         srfr_model,
         discriminator_model,
@@ -92,6 +95,7 @@ def main():
         train_settings,
         preprocess_settings,
         synthetic_num_classes,
+        learning_rate_scheduler,
     )
 
     checkpoint, manager = _create_checkpoint_and_manager(
@@ -131,12 +135,19 @@ def main():
     )
 
 
+def _instantiate_learning_rate(train_settings: Dict):
+    return tf.keras.experimental.CosineDecay(
+        train_settings["learning_rate"], train_settings["learning_rate_decay_steps"]
+    )
+
+
 def _instantiate_models(
     strategy,
     network_settings,
     train_settings,
     preprocess_settings,
     synthetic_num_classes,
+    learning_rate_scheduler,
 ):
     with strategy.scope():
         srfr_model = SRFR(
@@ -153,7 +164,7 @@ def _instantiate_models(
         discriminator_model = DiscriminatorNetwork()
 
         srfr_optimizer = NovoGrad(
-            learning_rate=train_settings["learning_rate"],
+            learning_rate=learning_rate_scheduler,
             beta_1=train_settings["momentum"],
             beta_2=train_settings["beta_2"],
             weight_decay=train_settings["weight_decay"],
@@ -164,7 +175,7 @@ def _instantiate_models(
             loss_scale="dynamic",
         )
         discriminator_optimizer = NovoGrad(
-            learning_rate=train_settings["learning_rate"],
+            learning_rate=learning_rate_scheduler,
             beta_1=train_settings["momentum"],
             beta_2=train_settings["beta_2"],
             weight_decay=train_settings["weight_decay"],
