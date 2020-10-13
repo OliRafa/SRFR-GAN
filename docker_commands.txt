@@ -5,10 +5,12 @@ docker build --rm . -t "srfr:ce" -f Dockerfile.train
 docker run --gpus all -d --privileged=true -v $LOCAL_WORKSPACE_FOLDER/datasets:/app/datasets -v $LOCAL_WORKSPACE_FOLDER/data/temp:/app/data/temp -v $LOCAL_WORKSPACE_FOLDER/data/logs:/app/data/logs -v $LOCAL_WORKSPACE_FOLDER/data/training_checkpoints:/app/data/training_checkpoints --restart on-failure --name srfr srfr:ce
 
 # Validate
-docker run --gpus all -d --privileged=true -v $LOCAL_WORKSPACE_FOLDER/data/datasets:/app/data/datasets -v $LOCAL_WORKSPACE_FOLDER/data/temp:/app/data/temp -v $LOCAL_WORKSPACE_FOLDER/data/logs:/app/data/logs -v $LOCAL_WORKSPACE_FOLDER/data/training_checkpoints:/app/data/training_checkpoints --restart on-failure --name srfr srfr:novograd
+docker build --rm . -t "srfr:validate" -f Dockerfile.validate
+docker run --gpus all -d --privileged=true -v $LOCAL_WORKSPACE_FOLDER/data/datasets:/app/data/datasets -v $LOCAL_WORKSPACE_FOLDER/data/temp:/app/data/temp -v $LOCAL_WORKSPACE_FOLDER/data/logs:/app/data/logs -v $LOCAL_WORKSPACE_FOLDER/data/training_checkpoints:/app/data/training_checkpoints --restart on-failure --name srfr-validate srfr:validate
 
 # Train Logs
 docker cp srfr:/app/train_logs.txt .
 
 # App Logs
 docker logs -f srfr 2>&1 | tee output.log
+docker logs -f srfr-validate 2>&1 | tee output.log
