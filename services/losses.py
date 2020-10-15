@@ -23,20 +23,28 @@ from training.vgg import create_vgg_model
 class Loss:
     def __init__(
         self,
+        synthetic_images,
         batch_size: int,
         train_summary_writer,
-        weight: float = 0.1,
-        scale: float = 64.0,
-        margin: float = 0.5,
+        perceptual_weight,
+        generator_weight,
+        l1_weight,
+        face_recognition_weight,
+        super_resolution_weight: float = 0.1,
     ):
         self.LOGGER = logging.getLogger(__name__)
         self.train_summary_writer = train_summary_writer
 
+        self.accuracy = synthetic_images
+
         self.batch_size = batch_size
         self.vgg = create_vgg_model()
-        self.weight = weight
-        self.scale = scale
-        self.margin = margin
+
+        self.perceptual_weight = perceptual_weight
+        self.generator_weight = generator_weight
+        self.l1_weight = l1_weight
+        self.face_recognition_weight = face_recognition_weight
+        self.super_resolution_weight = super_resolution_weight
 
         self._compute_categorical_crossentropy = distributed_sum_over_batch_size(
             batch_size
@@ -46,7 +54,7 @@ class Loss:
     def _compute_perceptual_loss(self, super_resolution, ground_truth) -> float:
         fake = self.vgg(super_resolution)
         real = self.vgg(ground_truth)
-        return self.weight * compute_euclidean_distance(fake, real)
+        return compute_euclidean_distance(fake, real)
 
     @tf.function
     def _generator_loss(self, sr_predictions, ground_truth_predictions) -> float:
@@ -85,11 +93,13 @@ class Loss:
         discriminator_gt_predictions,
         step,
     ) -> float:
-        perceptual_loss = self._compute_perceptual_loss(super_resolution, ground_truth)
-        generator_loss = self._generator_loss(
+        perceptual_loss = self.perceptual_weight * self._compute_perceptual_loss(
+            super_resolution, ground_truth
+        )
+        generator_loss = self.generator_weight * self._generator_loss(
             discriminator_sr_predictions, discriminator_gt_predictions
         )
-        l1_loss = self.weight * compute_l1_loss(super_resolution, ground_truth)
+        l1_loss = self.l1_weight * compute_l1_loss(super_resolution, ground_truth)
 
         with self.train_summary_writer.as_default():
             tf.summary.scalar(
@@ -191,7 +201,7 @@ class Loss:
                 synthetic_face_recognition[2],
             )
             fr_loss = synthetic_face_recognition_loss + natural_face_recognition_loss
-            return fr_loss + self.weight * super_resolution_loss
+            return fr_loss + self.super_resolution_weight * super_resolution_loss
 
         with self.train_summary_writer.as_default():
             tf.summary.scalar(
@@ -205,7 +215,10 @@ class Loss:
                 step=step,
             )
 
-        return synthetic_face_recognition_loss + self.weight * super_resolution_loss
+        return (
+            self.face_recognition_weight * synthetic_face_recognition_loss
+            + self.super_resolution_weight * super_resolution_loss
+        )
 
     @tf.function
     def compute_discriminator_loss(
@@ -242,3 +255,12 @@ class Loss:
     @tf.function
     def reshape_tensor_to_softmax(tensor):
         return tf.expand_dims(tf.squeeze(tensor), axis=0)
+
+    def calculate_accuracy(self, predictions, ground_truths) -> None:
+        self.accuracy.update_state(ground_truths, predictions)
+
+    def reset_accuracy_metric(self) -> None:
+        self.accuracy.reset_states()
+
+    def get_accuracy_results(self):
+        return self.accuracy.result()
