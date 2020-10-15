@@ -1,3 +1,38 @@
+## 1.10.0 (2020-10-15)
+
+### Feat
+
+- **hyperparameters**: change super_resolution_weight, perceptual_weight, generator_weight, l1_weight
+- **train**: add cosine decay as a learning rate scheduler
+- **visualization**: add more info about loss function on tensorboard
+- **models**: change UpSampling2D to Conv2DTranspose on generator
+
+### Perf
+
+- **validation**: moved cache from disk to ram and add prefetching
+- **data**: add prefetch and change cache buffer from hdd to memory
+- **data**: add prefetch and change cache buffer from hdd to memory
+
+### Fix
+
+- fix summary writer path
+- **save_metrics**: correct saving to logger file
+- **models**: fix sr output size
+
+## 1.7.0 (2020-10-04)
+
+### Feat
+
+- **hyperparameters**: change lr, momentum, beta_2 and weight_decay
+
+### Fix
+
+- correct train path, from training to services
+
+### Refactor
+
+- **models**: rollback resnet model to batch normalization implementation
+
 ## 1.9.0 (2020-10-12)
 
 ### Fix
