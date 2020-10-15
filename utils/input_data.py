@@ -685,7 +685,7 @@ class VggFace2(InputData):
             self._dataset_settings["test_path"],
         ]
         self._logger = super().get_logger()
-        self._class_pairs = super()._get_class_pairs("VGGFace2_LR", self._mode)
+        self._class_pairs = super()._get_class_pairs("VGGFace2_LR", "concatenated")
         super().set_class_pairs(self._class_pairs)
         self._dataset = None
 
@@ -699,10 +699,24 @@ class VggFace2(InputData):
             remove_overlaps=self._remove_overlaps,
             sample_ids=self._sample_ids,
         )
-        self._dataset = self._dataset.map(
-            super()._convert_class_ids,
-            num_parallel_calls=AUTOTUNE,
-        )
+        if isinstance(self._dataset, tuple):
+            train = self._dataset[0].map(
+                super()._convert_class_ids,
+                num_parallel_calls=AUTOTUNE,
+            )
+
+            test = self._dataset[1].map(
+                super()._convert_class_ids,
+                num_parallel_calls=AUTOTUNE,
+            )
+            self._dataset = (train, test)
+
+        else:
+            self._dataset = self._dataset.map(
+                super()._convert_class_ids,
+                num_parallel_calls=AUTOTUNE,
+            )
+
         return self._dataset
 
     def _get_number_of_classes(self):

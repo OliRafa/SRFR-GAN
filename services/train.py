@@ -46,13 +46,14 @@ class Train:
     def train_with_synthetic_images_only(
         self,
         batch_size,
-        dataset,
+        train_dataset,
+        test_dataset,
     ) -> float:
         for (
             synthetic_images,
             groud_truth_images,
             synthetic_classes,
-        ) in dataset:
+        ) in train_dataset:
             (
                 srfr_loss,
                 discriminator_loss,
@@ -63,8 +64,8 @@ class Train:
                 synthetic_classes,
                 self.checkpoint.step,
             )
-
             if int(self.checkpoint.step) % 1000 == 0:
+                accuracy = self._test_model(test_dataset)
                 self.save_model()
 
             self._save_metrics(
@@ -75,6 +76,7 @@ class Train:
                 synthetic_images,
                 groud_truth_images,
                 super_resolution_images,
+                accuracy or None,
             )
             self.checkpoint.step.assign_add(1)
 
@@ -87,6 +89,7 @@ class Train:
         synthetic_images,
         groud_truth_images,
         super_resolution_images,
+        accuracy=None,
     ) -> None:
         step = int(self.checkpoint.step)
         batch_size = int(batch_size)
@@ -134,6 +137,12 @@ class Train:
                 max_outputs=10,
                 step=step,
             )
+            if accuracy:
+                tf.summary.scalar(
+                    "Accuracy",
+                    float(accuracy),
+                    step=step,
+                )
 
     def save_model(self):
         save_path = self.manager.save()
@@ -248,3 +257,18 @@ class Train:
         )
 
         return new_srfr_loss, new_discriminator_loss, super_resolution_images
+
+    def _test_model(self, dataset) -> None:
+        self.losses.reset_accuracy_metric()
+        for (
+            synthetic_images,
+            groud_truth_images,
+            synthetic_classes,
+        ) in dataset:
+            (super_resolution_images, embeddings, predictions) = self.srfr_model(
+                synthetic_images, training=False
+            )
+            predictions = tf.argmax(predictions, axis=1, output_type=tf.int32)
+            self.losses.calculate_accuracy(predictions, synthetic_classes)
+
+        return self.losses.get_accuracy_results()
