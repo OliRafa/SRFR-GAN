@@ -50,7 +50,7 @@ class TrainModelUseCase:
             self.train_settings["super_resolution_weight"],
         )
 
-        self.CACHE_PATH = Path.cwd().joinpath("data", "temp", "train_dataset")
+        self.CACHE_PATH = Path.cwd().joinpath("data", "temp")
         if not self.CACHE_PATH.is_dir():
             self.CACHE_PATH.mkdir(parents=True)
 
@@ -146,7 +146,6 @@ class TrainModelUseCase:
             .prefetch(AUTOTUNE)
         )
 
-        # Using `distribute_dataset` to distribute the batches across the GPUs
         synthetic_train = self.strategy.experimental_distribute_dataset(synthetic_train)
 
         vgg_dataset._dataset = synthetic_test
@@ -198,7 +197,7 @@ class TrainModelUseCase:
 
             srfr_optimizer = NovoGrad(
                 learning_rate=learning_rate_scheduler,
-                beta_1=self.train_settings["momentum"],
+                beta_1=self.train_settings["beta_1"],
                 beta_2=self.train_settings["beta_2"],
                 weight_decay=self.train_settings["weight_decay"],
                 name="novograd_srfr",
@@ -209,7 +208,7 @@ class TrainModelUseCase:
             )
             discriminator_optimizer = NovoGrad(
                 learning_rate=learning_rate_scheduler,
-                beta_1=self.train_settings["momentum"],
+                beta_1=self.train_settings["beta_1"],
                 beta_2=self.train_settings["beta_2"],
                 weight_decay=self.train_settings["weight_decay"],
                 name="novograd_discriminator",
