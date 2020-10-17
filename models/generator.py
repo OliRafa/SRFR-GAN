@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import Model, Sequential
-from tensorflow.keras.layers import Add, Conv2D, Conv2DTranspose
+from tensorflow.keras.layers import Add, Conv2D, UpSampling2D
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 from tensorflow_addons.activations import mish
 
@@ -135,17 +135,25 @@ class GeneratorNetwork(Model):
             name="conv_after_rrdb_block",
             kernel_initializer="he_uniform",
         )
-        self._upsampling_1 = Conv2DTranspose(
+        self._upsampling_1 = UpSampling2D(size=(2, 2), interpolation="nearest")
+        self._upsampling_conv_1 = Conv2D(
             filters=num_filters,
-            kernel_size=[3, 3],
-            strides=[2, 2],
+            kernel_size=(3, 3),
+            strides=1,
             padding="same",
+            name="conv_upsampling_1",
+            activation=mish,
+            kernel_initializer="he_uniform",
         )
-        self._upsampling_2 = Conv2DTranspose(
+        self._upsampling_2 = UpSampling2D(size=(2, 2), interpolation="nearest")
+        self._upsampling_conv_2 = Conv2D(
             filters=num_filters,
-            kernel_size=[3, 3],
-            strides=[2, 2],
+            kernel_size=(3, 3),
+            strides=1,
             padding="same",
+            name="conv_upsampling_2",
+            activation=mish,
+            kernel_initializer="he_uniform",
         )
         self._high_resolution_conv = Conv2D(
             filters=num_filters,
