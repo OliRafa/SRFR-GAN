@@ -37,10 +37,10 @@ class TrainModelUseCase:
         self.BATCH_SIZE = (
             self.train_settings["batch_size"] * self.strategy.num_replicas_in_sync
         )
-        self.summary_writer = self._create_summary_writer()
+        self.summary_writer, self.summary_test = self._create_summary_writer()
 
         self.loss = Loss(
-            tf.keras.metrics.Accuracy(),
+            self._instantiate_metrics(),
             self.BATCH_SIZE,
             self.summary_writer,
             self.train_settings['perceptual_weight'],
@@ -98,6 +98,7 @@ class TrainModelUseCase:
             discriminator_model,
             discriminator_optimizer,
             self.summary_writer,
+            self.summary_test,
             self.checkpoint,
             self.checkpoint_manager,
             self.loss,
@@ -108,13 +109,10 @@ class TrainModelUseCase:
         for epoch in range(int(self.checkpoint.epoch), self.EPOCHS + 1):
             self.logger.info(f" Start of epoch {epoch}")
 
-            train.train_with_synthetic_images_only(
-                self.BATCH_SIZE, synthetic_train, synthetic_test
-            )
+            train.train_with_synthetic_images_only(self.BATCH_SIZE, synthetic_train)
+            train.test_model(synthetic_test, self.checkpoint.epoch)
 
-            elapsed_time = self.timing.end("TrainModelUseCase", True)
-            with self.summary_writer.as_default():
-                tf.summary.scalar("Training Time Per Epoch", elapsed_time, step=epoch)
+            _ = self.timing.end("TrainModelUseCase", True)
 
             self.checkpoint.epoch.assign_add(1)
 
@@ -248,17 +246,30 @@ class TrainModelUseCase:
     def _create_summary_writer(self):
         with self.strategy.scope():
             current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
-            return tf.summary.create_file_writer(
+            train = tf.summary.create_file_writer(
                 str(
                     Path.cwd().joinpath(
                         "data",
                         "logs",
-                        "train",
                         "gradient_tape",
                         current_time,
+                        "train",
                     )
                 ),
             )
+            test = tf.summary.create_file_writer(
+                str(
+                    Path.cwd().joinpath(
+                        "data",
+                        "logs",
+                        "gradient_tape",
+                        current_time,
+                        "test",
+                    )
+                ),
+            )
+
+            return train, test
 
     def _instantiate_values_as_tensors(self, batch_size: int, num_classes: int):
         with self.strategy.scope():
@@ -276,3 +287,7 @@ class TrainModelUseCase:
                 )
             else:
                 self.logger.info(" Initializing from scratch.")
+
+    def _instantiate_metrics(self):
+        with self.strategy.scope():
+            return tf.keras.metrics.Accuracy(name="test_accuracy")

@@ -28,6 +28,7 @@ class Train:
         discriminator_model,
         discriminator_optimizer,
         train_summary_writer,
+        test_summary_writer,
         checkpoint,
         manager,
         loss,
@@ -38,6 +39,7 @@ class Train:
         self.discriminator_model = discriminator_model
         self.discriminator_optimizer = discriminator_optimizer
         self.train_summary_writer = train_summary_writer
+        self.test_summary_writer = test_summary_writer
         self.checkpoint = checkpoint
         self.manager = manager
 
@@ -47,7 +49,6 @@ class Train:
         self,
         batch_size,
         train_dataset,
-        test_dataset,
     ) -> float:
         for (
             synthetic_images,
@@ -65,7 +66,6 @@ class Train:
                 self.checkpoint.step,
             )
             if int(self.checkpoint.step) % 1000 == 0:
-                accuracy = self._test_model(test_dataset)
                 self.save_model()
 
             self._save_metrics(
@@ -76,7 +76,6 @@ class Train:
                 synthetic_images,
                 groud_truth_images,
                 super_resolution_images,
-                accuracy or None,
             )
             self.checkpoint.step.assign_add(1)
 
@@ -89,7 +88,6 @@ class Train:
         synthetic_images,
         groud_truth_images,
         super_resolution_images,
-        accuracy=None,
     ) -> None:
         step = int(self.checkpoint.step)
         batch_size = int(batch_size)
@@ -137,12 +135,6 @@ class Train:
                 max_outputs=10,
                 step=step,
             )
-            if accuracy:
-                tf.summary.scalar(
-                    "Accuracy",
-                    float(accuracy),
-                    step=step,
-                )
 
     def save_model(self):
         save_path = self.manager.save()
@@ -258,17 +250,30 @@ class Train:
 
         return new_srfr_loss, new_discriminator_loss, super_resolution_images
 
-    def _test_model(self, dataset) -> None:
+    # @tf.function
+    def test_model(self, dataset, epoch) -> None:
         self.losses.reset_accuracy_metric()
         for (
             synthetic_images,
             groud_truth_images,
             synthetic_classes,
         ) in dataset:
-            (super_resolution_images, embeddings, predictions) = self.srfr_model(
-                synthetic_images, training=False
+            self.strategy.run(
+                self._call_accuracy_calc, args=(synthetic_images, synthetic_classes)
             )
-            predictions = tf.argmax(predictions, axis=1, output_type=tf.int32)
-            self.losses.calculate_accuracy(predictions, synthetic_classes)
+            break
 
-        return self.losses.get_accuracy_results()
+        accuracy = self.losses.get_accuracy_results()
+        with self.test_summary_writer.as_default():
+            tf.summary.scalar(
+                "Accuracy",
+                float(accuracy),
+                step=int(epoch),
+            )
+
+    def _call_accuracy_calc(self, synthetic_images, synthetic_classes) -> None:
+        (super_resolution_images, embeddings, predictions) = self.srfr_model(
+            synthetic_images, training=False
+        )
+        predictions = tf.argmax(predictions, axis=1, output_type=tf.int32)
+        self.losses.calculate_accuracy(predictions, synthetic_classes)
