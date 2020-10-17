@@ -81,7 +81,7 @@ def _instantiate_models(
             num_gc=network_settings["gc"],
             num_blocks=network_settings["num_blocks"],
             residual_scailing=network_settings["residual_scailing"],
-            training=False,
+            training=True,
             input_shape=preprocess_settings["image_shape_low_resolution"],
             num_classes_syn=synthetic_num_classes,
         )
