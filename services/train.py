@@ -261,7 +261,6 @@ class Train:
             self.strategy.run(
                 self._call_accuracy_calc, args=(synthetic_images, synthetic_classes)
             )
-            break
 
         accuracy = self.losses.get_accuracy_results()
         with self.test_summary_writer.as_default():
