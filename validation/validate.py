@@ -5,16 +5,18 @@ import tensorflow as tf
 from scipy import interpolate
 from scipy.optimize import brentq
 from sklearn import metrics
-
 from training.metrics import normalize
+
 from validation.lfw_helper import evaluate
 
 LOGGER = logging.getLogger(__name__)
 
 
 def _predict(images_batch, images_aug_batch, model):
-    _, embeddings = model(images_batch, training=False, input_type="syn")
-    _, embeddings_augmented = model(images_aug_batch, training=False, input_type="syn")
+    _, embeddings, _ = model(images_batch, training=False, input_type="syn")
+    _, embeddings_augmented, _ = model(
+        images_aug_batch, training=False, input_type="syn"
+    )
     embeddings = embeddings + embeddings_augmented
 
     if np.all(embeddings.numpy() == 0):
