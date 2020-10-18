@@ -16,7 +16,7 @@ network:
 # Settings for trainnig
 train:
   batch_size: 16
-  learning_rate: 7.e-3
+  learning_rate: 2.e-3
   learning_rate_decay_steps: 1000
   beta_1: 0.5
   beta_2: 0.25
