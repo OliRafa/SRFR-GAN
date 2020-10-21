@@ -21,7 +21,7 @@ train:
   beta_1: 0.5
   beta_2: 0.25
   weight_decay: 2.0e-4
-  iterations: 50_000
+  iterations: 20_000
   face_recognition_weight: 0.1
   super_resolution_weight: 0.1
   perceptual_weight: 1.e-3
@@ -36,5 +36,5 @@ dataset:
     path: "./datasets/LFW/Raw_Low_Resolution.tfrecords"
 
   vggface2_lr:
-    train_path: "./datasets/VGGFace2/Train_Low_Resolution_50k.tfrecords"
+    train_path: "./datasets/VGGFace2/Train_Low_Resolution_5k.tfrecords"
     test_path: "./datasets/VGGFace2/Test_Low_Resolution_5k.tfrecords"
