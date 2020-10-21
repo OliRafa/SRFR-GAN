@@ -28,7 +28,6 @@ class Train:
         discriminator_model,
         discriminator_optimizer,
         train_summary_writer,
-        test_summary_writer,
         checkpoint,
         manager,
         loss,
@@ -39,7 +38,6 @@ class Train:
         self.discriminator_model = discriminator_model
         self.discriminator_optimizer = discriminator_optimizer
         self.train_summary_writer = train_summary_writer
-        self.test_summary_writer = test_summary_writer
         self.checkpoint = checkpoint
         self.manager = manager
 
@@ -250,25 +248,22 @@ class Train:
 
         return new_srfr_loss, new_discriminator_loss, super_resolution_images
 
-    # @tf.function
-    def test_model(self, dataset, epoch) -> None:
+    def test_model(self, dataset) -> None:
         self.losses.reset_accuracy_metric()
         for (
             synthetic_images,
             groud_truth_images,
             synthetic_classes,
         ) in dataset:
-            self.strategy.run(
-                self._call_accuracy_calc, args=(synthetic_images, synthetic_classes)
-            )
+            self._call_test(synthetic_images, synthetic_classes)
 
-        accuracy = self.losses.get_accuracy_results()
-        with self.test_summary_writer.as_default():
-            tf.summary.scalar(
-                "Accuracy",
-                float(accuracy),
-                step=int(epoch),
-            )
+        return self.losses.get_accuracy_results() * 100
+
+    @tf.function
+    def _call_test(self, synthetic_images, synthetic_classes):
+        self.strategy.run(
+            self._call_accuracy_calc, args=(synthetic_images, synthetic_classes)
+        )
 
     def _call_accuracy_calc(self, synthetic_images, synthetic_classes) -> None:
         (super_resolution_images, embeddings, predictions) = self.srfr_model(
