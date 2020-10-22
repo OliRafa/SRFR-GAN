@@ -50,33 +50,32 @@ class VggFace2(BaseRepository):
         super().set_class_pairs(self._class_pairs)
         self._dataset = None
 
-    def get_train_dataset(self):
-        self._logger.info(f" Loading VGGFace2_LR in train mode.")
+        self._get_concatenated_dataset()
+        self._dataset_size = self.get_dataset_size(self._dataset)
+
+    def _get_concatenated_dataset(self):
+        self._logger.info(f" Loading VGGFace2_LR in concatenated mode.")
 
         dataset = super().load_dataset(
             "VGGFace2_LR",
-            self._dataset_paths["train"],
+            self._dataset_paths["both"],
             self._decoding_function,
-            "train",
+            "concatenated",
             remove_overlaps=self._remove_overlaps,
             sample_ids=self._sample_ids,
         )
 
-        return self._convert_tfrecords(dataset)
+        self._dataset = self._convert_tfrecords(dataset)
+
+    def get_train_dataset(self):
+        self._logger.info(f" Loading VGGFace2_LR in train mode.")
+
+        return self._dataset.take(int(0.7 * self._dataset_size))
 
     def get_test_dataset(self):
         self._logger.info(f" Loading VGGFace2_LR in test mode.")
 
-        dataset = super().load_dataset(
-            "VGGFace2_LR",
-            self._dataset_paths["test"],
-            self._decoding_function,
-            "test",
-            remove_overlaps=self._remove_overlaps,
-            sample_ids=self._sample_ids,
-        )
-
-        return self._convert_tfrecords(dataset)
+        return self._dataset.skip(int(0.7 * self._dataset_size))
 
     def get_concatenated_datasets(self):
         self._logger.info(f" Loading VGGFace2_LR in concatenated mode.")
@@ -119,8 +118,8 @@ class VggFace2(BaseRepository):
         # return self._number_of_train_classes, self._number_of_test_classes
         return 9294
 
-    def get_dataset_size(self):
-        return super()._get_dataset_size(self._dataset)
+    def get_dataset_size(self, dataset):
+        return super()._get_dataset_size(dataset)
 
     def get_dataset_shape(self):
         return self._dataset_shape

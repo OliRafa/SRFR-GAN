@@ -45,6 +45,7 @@ class TrainModelUseCase:
         discriminator_optimizer,
         synthetic_train,
         synthetic_test,
+        num_classes,
         loss,
         hparams: Dict,
     ):
@@ -74,7 +75,7 @@ class TrainModelUseCase:
             self.logger.info(f" Start of epoch {epoch}")
 
             train.train_with_synthetic_images_only(self.BATCH_SIZE, synthetic_train)
-            accuracy = train.test_model(synthetic_test)
+            accuracy = train.test_model(synthetic_test, num_classes)
 
             with self.summary_writer.as_default():
                 hp.hparams(hparams)

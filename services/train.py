@@ -248,26 +248,30 @@ class Train:
 
         return new_srfr_loss, new_discriminator_loss, super_resolution_images
 
-    def test_model(self, dataset) -> None:
+    def test_model(self, dataset, num_classes) -> None:
         self.losses.reset_accuracy_metric()
         for (
             synthetic_images,
             groud_truth_images,
             synthetic_classes,
         ) in dataset:
-            self._call_test(synthetic_images, synthetic_classes)
+            self._call_test(synthetic_images, synthetic_classes, num_classes)
 
         return self.losses.get_accuracy_results() * 100
 
     @tf.function
-    def _call_test(self, synthetic_images, synthetic_classes):
+    def _call_test(self, synthetic_images, synthetic_classes, num_classes):
         self.strategy.run(
-            self._call_accuracy_calc, args=(synthetic_images, synthetic_classes)
+            self._call_accuracy_calc,
+            args=(synthetic_images, synthetic_classes, num_classes),
         )
 
-    def _call_accuracy_calc(self, synthetic_images, synthetic_classes) -> None:
+    def _call_accuracy_calc(
+        self, synthetic_images, synthetic_classes, num_classes
+    ) -> None:
         (super_resolution_images, embeddings, predictions) = self.srfr_model(
             synthetic_images, training=False
         )
-        predictions = tf.argmax(predictions, axis=1, output_type=tf.int32)
+        # predictions = tf.argmax(predictions, axis=1, output_type=tf.int32)
+        synthetic_classes = tf.one_hot(synthetic_classes, num_classes)
         self.losses.calculate_accuracy(predictions, synthetic_classes)
