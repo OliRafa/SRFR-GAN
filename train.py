@@ -100,6 +100,7 @@ def main():
         batch_size=BATCH_SIZE,
         synthetic_train=synthetic_train,
         synthetic_test=synthetic_test,
+        num_classes=synthetic_num_classes,
         train_settings=train_settings,
         hparams=hyperparameters,
     )
@@ -128,6 +129,7 @@ def _instantiate_training(
     batch_size,
     synthetic_train,
     synthetic_test,
+    num_classes,
     train_settings,
     hparams,
 ):
@@ -179,6 +181,7 @@ def _instantiate_training(
         discriminator_optimizer,
         synthetic_train,
         synthetic_test,
+        num_classes,
         loss,
         tensorboard_params,
     )
@@ -194,7 +197,7 @@ def _create_summary_writer(strategy):
 
 def _instantiate_metrics(strategy):
     with strategy.scope():
-        return tf.keras.metrics.Accuracy(name="test_accuracy")
+        return tf.keras.metrics.CategoricalAccuracy(name="test_crossentropy")
 
 
 def _get_datasets(batch_size, strategy):
@@ -206,8 +209,7 @@ def _get_datasets(batch_size, strategy):
     synthetic_train = vgg_dataset.normalize_dataset(synthetic_train)
 
     synthetic_train = synthetic_train.cache(str(CACHE_PATH.joinpath("train")))
-    # synthetic_dataset_len = vgg_dataset.get_dataset_size()
-    synthetic_dataset_len = 100_000
+    synthetic_dataset_len = vgg_dataset.get_dataset_size(synthetic_train)
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_train = (
         synthetic_train.shuffle(buffer_size=2_048).batch(batch_size).prefetch(AUTOTUNE)
