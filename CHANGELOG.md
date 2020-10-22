@@ -1,3 +1,10 @@
+## 2.2.1 (2020-10-22)
+
+### Fix
+
+- **test**: fix test dataset, and accuracy function
+- **visualization**: fix tensorboard not catching hyperparameter runs, accuracy not being displayed, and training being stopped
+
 ## 2.2.0 (2020-10-21)
 
 ### Feat
