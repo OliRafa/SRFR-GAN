@@ -1,3 +1,19 @@
+## 2.2.0 (2020-10-21)
+
+### Feat
+
+- **hyperparameters**: add bayesian optimizer
+
+## 1.12.0 (2020-10-18)
+
+### Feat
+
+- **hyperparameters**: lower learning rate
+
+### Fix
+
+- **validation**: fix validation not compatible with model's outputs
+
 ## 1.11.0 (2020-10-17)
 
 ### Feat
@@ -37,78 +53,6 @@
 
 - **models**: change UpSampling2D to Conv2DTranspose on generator
 - **hyperparameters**: change lr, momentum, beta_2 and weight_decay
-
-### Fix
-
-- correct train path, from training to services
-
-## 1.10.0 (2020-10-15)
-
-### Feat
-
-- **hyperparameters**: change super_resolution_weight, perceptual_weight, generator_weight, l1_weight
-- **train**: add cosine decay as a learning rate scheduler
-- **visualization**: add more info about loss function on tensorboard
-- **models**: change UpSampling2D to Conv2DTranspose on generator
-
-### Perf
-
-- **validation**: moved cache from disk to ram and add prefetching
-- **data**: add prefetch and change cache buffer from hdd to memory
-- **data**: add prefetch and change cache buffer from hdd to memory
-
-### Fix
-
-- fix summary writer path
-- **save_metrics**: correct saving to logger file
-- **models**: fix sr output size
-
-## 1.7.0 (2020-10-04)
-
-### Feat
-
-- **hyperparameters**: change lr, momentum, beta_2 and weight_decay
-
-### Fix
-
-- correct train path, from training to services
-
-### Refactor
-
-- **models**: rollback resnet model to batch normalization implementation
-
-## 1.9.0 (2020-10-12)
-
-### Fix
-
-- **save_metrics**: correct saving to logger file
-
-### Feat
-
-- **visualization**: add more info about loss function on tensorboard
-
-## 1.8.1 (2020-10-09)
-
-### Fix
-
-- **models**: fix sr output size
-
-## 1.8.0 (2020-10-09)
-
-### Feat
-
-- **models**: change UpSampling2D to Conv2DTranspose on generator
-- **hyperparameters**: change lr, momentum, beta_2 and weight_decay
-
-### Fix
-
-- correct train path, from training to services
-
-## 1.7.0 (2020-10-04)
-
-### Feat
-
-- **hyperparameters**: change lr, momentum, beta_2 and weight_decay
 - **loss_function**: change arcloss for crossentropy
 - **hyperparameters**: change momentum and learning rate
 - **model**: removed batch normalization from model
@@ -132,7 +76,6 @@
 
 ### Refactor
 
-- **models**: rollback resnet model to batch normalization implementation
 - **scripts_to_tfrecords**: fix vgg script to work outside module
 - **models**: add keras path to load weights instead of downloading it each time
 - **tensorboard**: remove scalars for each batch
