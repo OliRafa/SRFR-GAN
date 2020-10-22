@@ -53,7 +53,7 @@ class TrainModelUseCase:
         )
 
         self.BATCH_SIZE = self._instantiate_values_as_tensors(self.BATCH_SIZE)
-        self._try_restore_checkpoint()
+        # self._try_restore_checkpoint()
         self.timing.start("TrainModelUseCase")
 
         train = Train(
@@ -68,20 +68,17 @@ class TrainModelUseCase:
             loss,
         )
 
-        with self.summary_writer.as_default():
-            hp.hparams(hparams)
-
         self.logger.info(" -------- Starting Training --------")
 
-        initial_epoch = int(self.checkpoint.epoch)
-        for epoch in range(initial_epoch, self.EPOCHS + 1):
+        for epoch in range(1, self.EPOCHS + 1):
             self.logger.info(f" Start of epoch {epoch}")
 
             train.train_with_synthetic_images_only(self.BATCH_SIZE, synthetic_train)
             accuracy = train.test_model(synthetic_test)
 
             with self.summary_writer.as_default():
-                tf.summary.scalar("Accuracy", accuracy, step=int(self.checkpoint.epoch))
+                hp.hparams(hparams)
+                tf.summary.scalar("accuracy", accuracy, step=int(self.checkpoint.epoch))
 
             _ = self.timing.end("TrainModelUseCase", True)
 
@@ -95,7 +92,7 @@ class TrainModelUseCase:
         srfr_model, discriminator_model, srfr_optimizer, discriminator_optimizer
     ):
         checkpoint = tf.train.Checkpoint(
-            epoch=tf.Variable(1),
+            epoch=tf.Variable(1, dtype=tf.int64),
             step=tf.Variable(1, dtype=tf.int64),
             srfr_model=srfr_model,
             discriminator_model=discriminator_model,

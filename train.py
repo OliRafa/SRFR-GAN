@@ -56,13 +56,12 @@ def main():
     # strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
     dimensions = _create_dimensions()
     hyperparameters = _create_hyprparameters_domain()
-    METRIC_ACCURACY = "accuracy"
     with tf.summary.create_file_writer(
         str(Path.cwd().joinpath("data", "logs", "hparam_tuning"))
     ).as_default():
         hp.hparams_config(
             hparams=hyperparameters,
-            metrics=[hp.Metric(METRIC_ACCURACY, display_name="Accuracy")],
+            metrics=[hp.Metric("accuracy", display_name="Accuracy")],
         )
 
     (
@@ -211,9 +210,7 @@ def _get_datasets(batch_size, strategy):
     synthetic_dataset_len = 100_000
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_train = (
-        synthetic_train.shuffle(buffer_size=2_048)
-        # .repeat()
-        .batch(batch_size).prefetch(AUTOTUNE)
+        synthetic_train.shuffle(buffer_size=2_048).batch(batch_size).prefetch(AUTOTUNE)
     )
 
     synthetic_train = strategy.experimental_distribute_dataset(synthetic_train)
@@ -316,7 +313,7 @@ def _create_hyprparameters_domain():
     )
     HP_LEARNING_RATE_DECAY_STEPS = hp.HParam(
         "learning_rate_decay_steps",
-        hp.Discrete([1_000, 2_000, 3_000, 6_000]),
+        hp.Discrete(range(1_000, 6_000 + 1)),
     )
     HP_BETA_1 = hp.HParam("beta_1", hp.RealInterval(0.5, 0.9))
     HP_FR_WEIGHT = hp.HParam("face_recognition_weight", hp.RealInterval(0.1, 1.0))
