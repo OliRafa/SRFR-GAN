@@ -1,3 +1,9 @@
+## 2.2.2 (2020-10-23)
+
+### Fix
+
+- **dataset**: fix remainders when batching the dataset
+
 ## 2.2.1 (2020-10-22)
 
 ### Fix
