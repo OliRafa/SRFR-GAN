@@ -212,7 +212,9 @@ def _get_datasets(batch_size, strategy):
     synthetic_dataset_len = vgg_dataset.get_dataset_size(synthetic_train)
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
     synthetic_train = (
-        synthetic_train.shuffle(buffer_size=2_048).batch(batch_size).prefetch(AUTOTUNE)
+        synthetic_train.shuffle(buffer_size=2_048)
+        .batch(batch_size, drop_remainder=True)
+        .prefetch(AUTOTUNE)
     )
 
     synthetic_train = strategy.experimental_distribute_dataset(synthetic_train)
@@ -221,7 +223,9 @@ def _get_datasets(batch_size, strategy):
     synthetic_test = vgg_dataset.normalize_dataset(synthetic_test)
     synthetic_test = synthetic_test.cache(str(CACHE_PATH.joinpath("test")))
     synthetic_test = (
-        synthetic_test.shuffle(buffer_size=2_048).batch(batch_size).prefetch(AUTOTUNE)
+        synthetic_test.shuffle(buffer_size=2_048)
+        .batch(batch_size, drop_remainder=True)
+        .prefetch(AUTOTUNE)
     )
 
     synthetic_test = strategy.experimental_distribute_dataset(synthetic_test)
