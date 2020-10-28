@@ -43,7 +43,7 @@ logging.basicConfig(
     level=logging.DEBUG,
 )
 LOGGER = logging.getLogger(__name__)
-CACHE_PATH = Path.cwd().joinpath("data", "temp")
+CACHE_PATH = Path.cwd().joinpath("output", "temp")
 if not CACHE_PATH.is_dir():
     CACHE_PATH.mkdir(parents=True)
 
@@ -57,7 +57,7 @@ def main():
     dimensions = _create_dimensions()
     hyperparameters = _create_hyprparameters_domain()
     with tf.summary.create_file_writer(
-        str(Path.cwd().joinpath("data", "logs", "hparam_tuning"))
+        str(Path.cwd().joinpath("output", "logs", "hparam_tuning"))
     ).as_default():
         hp.hparams_config(
             hparams=hyperparameters,
@@ -191,7 +191,7 @@ def _create_summary_writer(strategy):
     with strategy.scope():
         current_time = datetime.now().strftime("%Y%m%d-%H%M%S")
         return tf.summary.create_file_writer(
-            str(Path.cwd().joinpath("data", "logs", "hparam_tuning", current_time))
+            str(Path.cwd().joinpath("output", "logs", "hparam_tuning", current_time))
         )
 
 

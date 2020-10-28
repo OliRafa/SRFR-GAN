@@ -18,8 +18,7 @@ WORKDIR /app
 ADD . /app
 
 VOLUME /app/datasets
-VOLUME /app/data/logs
-VOLUME /app/data/training_checkpoints
-VOLUME /app/data/temp
+VOLUME /app/data
+VOLUME /app/output
 
 CMD ["python3", "train.py"]
