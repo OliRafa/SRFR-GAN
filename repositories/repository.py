@@ -203,10 +203,8 @@ class BaseRepository:
     def _get_class_pairs(self, dataset_name: str, file_name: str):
         self._logger.info(f" Getting class pairs.")
 
-        path = (
-            Path()
-            .cwd()
-            .joinpath("utils", "class_pairs", f"{dataset_name}", f"{file_name}.txt")
+        path = Path.cwd().joinpath(
+            "data", "class_pairs", f"{dataset_name}", f"{file_name}.txt"
         )
         if not path.is_file():
             self._logger.warning(f" File not found for {dataset_name}.")
@@ -298,7 +296,7 @@ class BaseRepository:
             Tuple with the identities to be cleaned.
         """
         overlapping = set()
-        path = Path().cwd().joinpath("utils", "overlapping_identities", dataset_name)
+        path = Path.cwd().joinpath("data", "overlapping_identities", dataset_name)
         for file_path in path.glob("*"):
             with file_path.open("r") as _file:
                 for line in _file.readlines():
