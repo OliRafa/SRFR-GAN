@@ -106,7 +106,7 @@ class TrainModelUseCase:
         manager = tf.train.CheckpointManager(
             checkpoint,
             directory=str(
-                Path.cwd().joinpath("data", "training_checkpoints", current_time)
+                Path.cwd().joinpath("output", "training_checkpoints", current_time)
             ),
             max_to_keep=None,
         )

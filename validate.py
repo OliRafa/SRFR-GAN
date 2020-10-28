@@ -95,7 +95,7 @@ def _create_checkpoint_and_manager(srfr_model):
     )
     manager = tf.train.CheckpointManager(
         checkpoint,
-        directory=str(Path.cwd().joinpath("data", "training_checkpoints")),
+        directory=str(Path.cwd().joinpath("output", "training_checkpoints")),
         max_to_keep=5,
     )
     return checkpoint, manager
@@ -104,7 +104,9 @@ def _create_checkpoint_and_manager(srfr_model):
 def _create_summary_writer():
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     return tf.summary.create_file_writer(
-        str(Path.cwd().joinpath("data", "logs", "gradient_tape", current_time, "test")),
+        str(
+            Path.cwd().joinpath("output", "logs", "gradient_tape", current_time, "test")
+        ),
     )
 
 
