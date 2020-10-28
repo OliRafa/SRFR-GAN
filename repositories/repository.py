@@ -1,5 +1,6 @@
 import logging
 import os
+from functools import partial
 from pathlib import Path
 from typing import List, Union
 
@@ -240,7 +241,7 @@ class BaseRepository:
         self._class_pairs = class_pairs
 
     @tf.function
-    def _convert_class_ids(self, *args):
+    def _convert_class_ids_with_sample_id(self, *args):
         if self._sample_ids:
             class_id = args[-2]
         else:
@@ -256,8 +257,18 @@ class BaseRepository:
         return args
 
     @tf.function
+    def _convert_class_ids(self, *args):
+        class_id = args[-1]
+        class_id = self._class_pairs.lookup(class_id)
+
+        args = list(args)
+        args[-1] = class_id
+
+        return args
+
+    @tf.function
     def _filter_overlaps(self, *args):
-        if self._sample_ids:
+        if getattr(self, "_sample_ids", False):
             class_id = args[-2]
         else:
             class_id = args[-1]
@@ -318,6 +329,28 @@ class BaseRepository:
         """
         # Sum number of samples in the dataset
         return sum(1 for _ in dataset)
+
+    def load_dataset_multiple_shards(
+        self,
+        dataset_name: str,
+        dataset_paths: List[str],
+        decoding_function,
+        remove_overlaps: bool = False,
+    ):
+        _load_tfrecords = partial(
+            self._load_from_tfrecords, decoding_function=decoding_function
+        )
+        self._overlaps = (
+            self._get_overlapping_identities(dataset_name)
+            if remove_overlaps
+            else remove_overlaps
+        )
+
+        paths = tf.io.matching_files(f"{str(dataset_paths)}/*")
+        paths = tf.random.shuffle(paths)
+        paths = tf.data.Dataset.from_tensor_slices(paths)
+        paths = paths.interleave(_load_tfrecords, deterministic=False)
+        return paths.shuffle(buffer_size=9000)
 
     def load_dataset(
         self,

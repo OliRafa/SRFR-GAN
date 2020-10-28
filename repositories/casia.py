@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Tuple, Union
 
 import tensorflow as tf
@@ -8,92 +9,64 @@ from repositories.repository import BaseRepository
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
-class VggFace2(BaseRepository):
+class CasiaWebface(BaseRepository):
+    DATASET_PATH = Path.cwd().joinpath("data", "datasets", "CASIA_LR_TFRecords")
+
     def __init__(
         self,
         remove_overlaps: bool = True,
-        sample_ids: bool = False,
     ):
         super().__init__()
         self._remove_overlaps = remove_overlaps
-        self._sample_ids = sample_ids
-        if self._sample_ids:
-            self._dataset_shape = "iics"
-        else:
-            self._dataset_shape = "iic"
 
-        if self._remove_overlaps:
-            self._number_of_train_classes = 8069
-            self._number_of_test_classes = 460
-        else:
-            self._number_of_train_classes = 8631
-            self._number_of_test_classes = 500
-
+        self._dataset_shape = "iic"
         self._serialized_features = {
             "class_id": tf.io.FixedLenFeature([], tf.string),
-            "sample_id": tf.io.FixedLenFeature([], tf.string),
             "image_low_resolution": tf.io.FixedLenFeature([], tf.string),
             "image_high_resolution": tf.io.FixedLenFeature([], tf.string),
         }
+
+        # if self._remove_overlaps:
+        #    self._number_of_train_classes = 8069
+        #    self._number_of_test_classes = 460
+        # else:
+        #    self._number_of_train_classes = 8631
+        #    self._number_of_test_classes = 500
+
         self._dataset_settings = parseConfigsFile(["dataset"])["vggface2_lr"]
-        self._dataset_paths = {
-            "train": self._dataset_settings["train_path"],
-            "test": self._dataset_settings["test_path"],
-            "both": [
-                self._dataset_settings["train_path"],
-                self._dataset_settings["test_path"],
-            ],
-        }
 
         self._logger = super().get_logger()
-        self._class_pairs = super()._get_class_pairs("VGGFace2_LR", "concatenated")
+        self._class_pairs = super()._get_class_pairs("CASIA", "concatenated")
         super().set_class_pairs(self._class_pairs)
-        self._dataset = None
 
-        self._get_concatenated_dataset()
+        self._dataset = self.get_concatenated_dataset()
         self._dataset_size = self.get_dataset_size(self._dataset)
 
-    def _get_concatenated_dataset(self):
-        self._logger.info(f" Loading VGGFace2_LR in concatenated mode.")
-
-        dataset = super().load_dataset(
-            "VGGFace2_LR",
-            self._dataset_paths["both"],
-            self._decoding_function,
-            "concatenated",
-            remove_overlaps=self._remove_overlaps,
-            sample_ids=self._sample_ids,
-        )
-
-        self._dataset = self._convert_tfrecords(dataset)
-
     def get_train_dataset(self):
-        self._logger.info(f" Loading VGGFace2_LR in train mode.")
+        self._logger.info(f" Loading CASIA-Webface in train mode.")
 
-        return self._dataset.take(int(0.7 * self._dataset_size))
+        return self._dataset.take(int(0.9 * self._dataset_size))
 
     def get_test_dataset(self):
-        self._logger.info(f" Loading VGGFace2_LR in test mode.")
+        self._logger.info(f" Loading CASIA-Webface in test mode.")
 
-        return self._dataset.skip(int(0.7 * self._dataset_size))
+        return self._dataset.skip(int(0.9 * self._dataset_size))
 
-    def get_concatenated_datasets(self):
-        self._logger.info(f" Loading VGGFace2_LR in concatenated mode.")
+    def get_concatenated_dataset(self):
+        self._logger.info(f" Loading CASIA-Webface in concatenated mode.")
 
-        dataset = super().load_dataset(
-            "VGGFace2_LR",
-            self._dataset_paths["both"],
+        dataset = super().load_dataset_multiple_shards(
+            "CASIA",
+            self.DATASET_PATH,
             self._decoding_function,
-            "concatenated",
-            remove_overlaps=self._remove_overlaps,
-            sample_ids=self._sample_ids,
+            self._remove_overlaps,
         )
 
         return self._convert_tfrecords(dataset)
 
     def _convert_tfrecords(self, dataset):
         return dataset.map(
-            super()._convert_class_ids_with_sample_id,
+            super()._convert_class_ids,
             num_parallel_calls=AUTOTUNE,
         )
 
@@ -107,16 +80,7 @@ class VggFace2(BaseRepository):
         return num_classes
 
     def get_number_of_classes(self) -> Union[int, Tuple[int]]:
-        # return 272
-        # return 27
-        # if self._mode == "train":
-        #    return self._number_of_train_classes
-        # if self._mode == "test":
-        #    return self._number_of_test_classes
-        # if self._mode == "concatenated":
-        #    return self._number_of_train_classes + self._number_of_test_classes
-        # return self._number_of_train_classes, self._number_of_test_classes
-        return 9294
+        return 10574
 
     def get_dataset_size(self, dataset):
         return super()._get_dataset_size(dataset)
@@ -151,20 +115,15 @@ class VggFace2(BaseRepository):
         )
 
         class_id = super()._decode_string(deserialized_example["class_id"])
-        if self._sample_ids:
-            self._dataset_shape = "iics"
-            sample_id = self._decode_string(deserialized_example["sample_id"])
-            return image_lr, image_hr, class_id, sample_id
-
         self._dataset_shape = "iic"
         return image_lr, image_hr, class_id
 
     def augment_dataset(self, dataset):
-        self._logger.info(" Augmenting VggFace2_LR dataset.")
+        self._logger.info(" Augmenting CASIA-Webface dataset.")
         return super().augment_dataset(dataset, self.get_dataset_shape())
 
     def normalize_dataset(self, dataset):
-        self._logger.info(" Normalizing VggFace2_LR dataset.")
+        self._logger.info(" Normalizing CASIA-Webface dataset.")
         return dataset.map(
             lambda image_lr, image_hr, class_id: (
                 self.normalize_image(image_lr),

@@ -30,7 +30,7 @@ from tensorflow_addons.optimizers import NovoGrad
 
 from models.discriminator import DiscriminatorNetwork
 from models.srfr import SRFR
-from repositories.vggface2 import VggFace2
+from repositories.casia import CasiaWebface
 from services.losses import Loss
 from use_cases.train_model_use_case import TrainModelUseCase
 from utils.input_data import parseConfigsFile
@@ -203,32 +203,31 @@ def _instantiate_metrics(strategy):
 def _get_datasets(batch_size, strategy):
     LOGGER.info(" -------- Importing Datasets --------")
 
-    vgg_dataset = VggFace2()
-    synthetic_train = vgg_dataset.get_train_dataset()
-    synthetic_train = vgg_dataset.augment_dataset(synthetic_train)
-    synthetic_train = vgg_dataset.normalize_dataset(synthetic_train)
+    casia_dataset = CasiaWebface()
+    synthetic_train = casia_dataset.get_train_dataset()
+    synthetic_train = casia_dataset.augment_dataset(synthetic_train)
+    synthetic_train = casia_dataset.normalize_dataset(synthetic_train)
 
     synthetic_train = synthetic_train.cache(str(CACHE_PATH.joinpath("train")))
-    synthetic_dataset_len = vgg_dataset.get_dataset_size(synthetic_train)
-    synthetic_num_classes = vgg_dataset.get_number_of_classes()
+    synthetic_dataset_len = casia_dataset.get_dataset_size(synthetic_train)
     synthetic_train = (
         synthetic_train.shuffle(buffer_size=2_048)
         .batch(batch_size, drop_remainder=True)
         .prefetch(AUTOTUNE)
     )
-
     synthetic_train = strategy.experimental_distribute_dataset(synthetic_train)
 
-    synthetic_test = vgg_dataset.get_test_dataset()
-    synthetic_test = vgg_dataset.normalize_dataset(synthetic_test)
+    synthetic_test = casia_dataset.get_test_dataset()
+    synthetic_test = casia_dataset.normalize_dataset(synthetic_test)
     synthetic_test = synthetic_test.cache(str(CACHE_PATH.joinpath("test")))
     synthetic_test = (
         synthetic_test.shuffle(buffer_size=2_048)
         .batch(batch_size, drop_remainder=True)
         .prefetch(AUTOTUNE)
     )
-
     synthetic_test = strategy.experimental_distribute_dataset(synthetic_test)
+
+    synthetic_num_classes = casia_dataset.get_number_of_classes()
 
     return (
         synthetic_train,
