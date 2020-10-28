@@ -298,7 +298,7 @@ class InputData:
         self._class_pairs = class_pairs
 
     @tf.function
-    def _convert_class_ids(self, *args):
+    def _convert_class_ids_with_sample_id(self, *args):
         if self._sample_ids:
             class_id = args[-2]
         else:
@@ -701,19 +701,19 @@ class VggFace2(InputData):
         )
         if isinstance(self._dataset, tuple):
             train = self._dataset[0].map(
-                super()._convert_class_ids,
+                super()._convert_class_ids_with_sample_id,
                 num_parallel_calls=AUTOTUNE,
             )
 
             test = self._dataset[1].map(
-                super()._convert_class_ids,
+                super()._convert_class_ids_with_sample_id,
                 num_parallel_calls=AUTOTUNE,
             )
             self._dataset = (train, test)
 
         else:
             self._dataset = self._dataset.map(
-                super()._convert_class_ids,
+                super()._convert_class_ids_with_sample_id,
                 num_parallel_calls=AUTOTUNE,
             )
 
