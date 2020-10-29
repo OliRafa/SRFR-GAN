@@ -26,15 +26,6 @@ class CasiaWebface(BaseRepository):
             "image_high_resolution": tf.io.FixedLenFeature([], tf.string),
         }
 
-        # if self._remove_overlaps:
-        #    self._number_of_train_classes = 8069
-        #    self._number_of_test_classes = 460
-        # else:
-        #    self._number_of_train_classes = 8631
-        #    self._number_of_test_classes = 500
-
-        self._dataset_settings = parseConfigsFile(["dataset"])["vggface2_lr"]
-
         self._logger = super().get_logger()
         self._class_pairs = super()._get_class_pairs("CASIA", "concatenated")
         super().set_class_pairs(self._class_pairs)
