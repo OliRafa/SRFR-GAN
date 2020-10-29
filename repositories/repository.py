@@ -349,8 +349,7 @@ class BaseRepository:
         paths = tf.io.matching_files(f"{str(dataset_paths)}/*")
         paths = tf.random.shuffle(paths)
         paths = tf.data.Dataset.from_tensor_slices(paths)
-        paths = paths.interleave(_load_tfrecords, deterministic=False)
-        return paths.shuffle(buffer_size=9000)
+        return paths.interleave(_load_tfrecords, deterministic=False)
 
     def load_dataset(
         self,
