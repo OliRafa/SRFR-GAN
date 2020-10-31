@@ -1,15 +1,12 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
 
 import tensorflow as tf
-from services.train import Train, generate_num_epochs
-from tensorboard.plugins.hparams import api as hp
 from utils.input_data import parseConfigsFile
 from utils.timing import TimingLogger
 
 
-class TrainModelUseCase:
+class BaseTrainModelUseCase:
     def __init__(
         self,
         strategy,
@@ -22,71 +19,27 @@ class TrainModelUseCase:
         self.strategy = strategy
         self.timing = timing
         self.logger = logger
+        self.summary_writer = summary_writer
+
         self.checkpoint = None
         self.checkpoint_manager = None
 
-        self.network_settings = {}
         self.train_settings = self._get_training_settings()
-        self.preprocess_settings = {}
         self.BATCH_SIZE = batch_size
-        self.EPOCHS = generate_num_epochs(
+        self.EPOCHS = self._generate_num_epochs(
             self.train_settings["iterations"],
             dataset_len,
-            self.BATCH_SIZE,
         )
 
-        self.summary_writer = summary_writer
-
-    def execute(
-        self,
-        srfr_model,
-        discriminator_model,
-        srfr_optimizer,
-        discriminator_optimizer,
-        synthetic_train,
-        synthetic_test,
-        num_classes,
-        loss,
-        hparams: Dict,
-    ):
-        self.checkpoint, self.checkpoint_manager = self._create_checkpoint_and_manager(
-            srfr_model, discriminator_model, srfr_optimizer, discriminator_optimizer
+    def _generate_num_epochs(self, iterations, len_dataset):
+        self.logger.info(
+            f" Generating number of epochs for {iterations} iterations,\
+        {len_dataset} dataset length and {self.BATCH_SIZE} batch size."
         )
-
-        self.BATCH_SIZE = self._instantiate_values_as_tensors(self.BATCH_SIZE)
-        # self._try_restore_checkpoint()
-        self.timing.start("TrainModelUseCase")
-
-        train = Train(
-            self.strategy,
-            srfr_model,
-            srfr_optimizer,
-            discriminator_model,
-            discriminator_optimizer,
-            self.summary_writer,
-            self.checkpoint,
-            self.checkpoint_manager,
-            loss,
-        )
-
-        self.logger.info(" -------- Starting Training --------")
-
-        for epoch in range(1, self.EPOCHS + 1):
-            self.logger.info(f" Start of epoch {epoch}")
-
-            train.train_with_synthetic_images_only(self.BATCH_SIZE, synthetic_train)
-            accuracy = train.test_model(synthetic_test, num_classes)
-
-            with self.summary_writer.as_default():
-                hp.hparams(hparams)
-                tf.summary.scalar("accuracy", accuracy, step=int(self.checkpoint.epoch))
-
-            _ = self.timing.end("TrainModelUseCase", True)
-
-            self.checkpoint.epoch.assign_add(1)
-
-        train.save_model()
-        return -accuracy.numpy().tolist()
+        train_size = tf.math.ceil(len_dataset / self.BATCH_SIZE)
+        epochs = tf.cast(tf.math.ceil(iterations / train_size), dtype=tf.int32)
+        self.logger.info(f" Number of epochs: {epochs}.")
+        return epochs
 
     @staticmethod
     def _create_checkpoint_and_manager(
