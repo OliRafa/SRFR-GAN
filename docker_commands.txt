@@ -2,6 +2,7 @@
 
 # Train
 docker build --rm . -f Dockerfile.train -t "srfr:"
+docker build --rm . -f Dockerfile.train_sr_only -t "srfr:"
 docker run --gpus all -d --privileged=true -v $LOCAL_WORKSPACE_FOLDER/datasets:/app/datasets -v $LOCAL_WORKSPACE_FOLDER/output:/app/output -v $LOCAL_WORKSPACE_FOLDER/data:/app/data --restart on-failure --name srfr srfr:
 
 # Validate
