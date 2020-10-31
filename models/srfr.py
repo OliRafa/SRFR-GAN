@@ -22,7 +22,7 @@ class SRFR(Model):
         residual_scailing: float = 0.2,
         training: bool = True,
         input_shape=(28, 28, 3),
-        num_classes_syn: int = None,
+        num_classes_syn: int = 2,
         both: bool = False,
         num_classes_nat: int = None,
         scale: int = 64,

@@ -14,6 +14,7 @@ class CasiaWebface(BaseRepository):
 
     def __init__(
         self,
+        BASE_CACHE_PATH: Path,
         remove_overlaps: bool = True,
     ):
         super().__init__()
@@ -31,6 +32,7 @@ class CasiaWebface(BaseRepository):
         super().set_class_pairs(self._class_pairs)
 
         self._dataset = self.get_concatenated_dataset()
+        self._dataset = self._dataset.cache(str(BASE_CACHE_PATH.joinpath("base")))
         self._dataset_size = self.get_dataset_size(self._dataset)
 
     def get_train_dataset(self):

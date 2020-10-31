@@ -18,10 +18,10 @@ train:
   batch_size: 16
   learning_rate: 2.e-3
   learning_rate_decay_steps: 1000
-  beta_1: 0.5
-  beta_2: 0.25
+  beta_1: 0.9
+  beta_2: 0.999
   weight_decay: 2.0e-4
-  iterations: 20_000
+  iterations: 30_000
   face_recognition_weight: 0.1
   super_resolution_weight: 0.1
   perceptual_weight: 1.e-3

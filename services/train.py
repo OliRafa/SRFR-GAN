@@ -8,17 +8,6 @@ from services.losses import Loss
 LOGGER = logging.getLogger(__name__)
 
 
-def generate_num_epochs(iterations, len_dataset, batch_size):
-    LOGGER.info(
-        f" Generating number of epochs for {iterations} iterations,\
- {len_dataset} dataset length and {batch_size} batch size."
-    )
-    train_size = tf.math.ceil(len_dataset / batch_size)
-    epochs = tf.cast(tf.math.ceil(iterations / train_size), dtype=tf.int32)
-    LOGGER.info(f" Number of epochs: {epochs}.")
-    return epochs
-
-
 class Train:
     def __init__(
         self,

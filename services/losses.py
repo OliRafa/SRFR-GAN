@@ -29,7 +29,7 @@ class Loss:
         perceptual_weight,
         generator_weight,
         l1_weight,
-        face_recognition_weight,
+        face_recognition_weight: float = 0.1,
         super_resolution_weight: float = 0.1,
     ):
         self.LOGGER = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ class Loss:
         )
 
     # @tf.function
-    def _compute_generator_loss(
+    def compute_generator_loss(
         self,
         super_resolution,
         ground_truth,
@@ -184,7 +184,7 @@ class Loss:
         -------
             The loss value.
         """
-        super_resolution_loss = self._compute_generator_loss(
+        super_resolution_loss = self.compute_generator_loss(
             super_resolution_images,
             ground_truth_images,
             discriminator_sr_predictions,
@@ -259,8 +259,14 @@ class Loss:
     def calculate_accuracy(self, predictions, ground_truths) -> None:
         self.accuracy.update_state(ground_truths, predictions)
 
+    def calculate_mean_accuracy(self, values) -> None:
+        self.accuracy.update_state(values)
+
     def reset_accuracy_metric(self) -> None:
         self.accuracy.reset_states()
 
     def get_accuracy_results(self):
         return self.accuracy.result()
+
+    def calculate_psnr(self, predictions, ground_truths):
+        return tf.image.psnr(predictions, ground_truths, max_val=255)

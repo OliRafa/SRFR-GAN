@@ -32,7 +32,7 @@ from models.discriminator import DiscriminatorNetwork
 from models.srfr import SRFR
 from repositories.casia import CasiaWebface
 from services.losses import Loss
-from use_cases.train_model_use_case import TrainModelUseCase
+from use_cases.train.train_model_joint_learn import TrainModelJointLearnUseCase
 from utils.input_data import parseConfigsFile
 
 # Importar Natural DS.
@@ -83,7 +83,7 @@ def main():
         strategy, synthetic_num_classes, network_settings, preprocess_settings
     )
 
-    train_model_use_case = TrainModelUseCase(
+    train_model_use_case = TrainModelJointLearnUseCase(
         strategy,
         TimingLogger(),
         LOGGER,
@@ -123,7 +123,7 @@ def _instantiate_training(
     generator_weight,
     l1_weight,
     strategy,
-    train_model_use_case: TrainModelUseCase,
+    train_model_use_case: TrainModelJointLearnUseCase,
     srfr_model,
     discriminator_model,
     batch_size,
@@ -174,7 +174,7 @@ def _instantiate_training(
 
     train_model_use_case.summary_writer = summary_writer
 
-    return train_model_use_case.execute(
+    return -train_model_use_case.execute(
         srfr_model,
         discriminator_model,
         srfr_optimizer,
