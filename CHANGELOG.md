@@ -1,3 +1,17 @@
+## 3.1.0 (2020-10-31)
+
+### Feat
+
+- add train super resolution only
+
+### Fix
+
+- **repository**: fix inadequate use of space by shuffling before caching
+
+### Refactor
+
+- change output dir
+
 ## 3.0.0 (2020-10-28)
 
 ### Feat
