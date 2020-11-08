@@ -1,10 +1,15 @@
 import tensorflow as tf
+from tensorflow.keras import Model
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 from models.arcloss_layer import ArcLossLayer
-from models.srfr import SRFR
+from models.resnet import ResNet
+
+policy = mixed_precision.Policy("mixed_float16")
+mixed_precision.set_policy(policy)
 
 
-class SrfrFrOnly(SRFR):
+class SrfrFrOnly(Model):
     def __init__(
         self,
         depth: int = 50,
@@ -12,24 +17,16 @@ class SrfrFrOnly(SRFR):
         num_classes: int = 2,
         scale: int = 64,
         training: bool = True,
-        input_shape=(28, 28, 3),
+        input_shape=(112, 112, 3),
     ):
-        super(SrfrFrOnly, self).__init__(
-            depth=depth,
-            categories=categories,
-            training=training,
-            input_shape=input_shape,
-        )
+        super(SrfrFrOnly, self).__init__()
+        self._face_recognition = ResNet(depth, categories, training, input_shape)
         self._arcloss_layer = ArcLossLayer(
-            input_shape=(categories,),
             units=num_classes,
             scale=scale,
             dtype="float32",
             name="arcloss_layer",
         )
-        self._arcloss_layer.build(tf.TensorShape([None, categories]))
-        del self._synthetic_input
-        del self._super_resolution
 
     def call(self, input_tensor, training: bool = True):
         if training:
