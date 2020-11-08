@@ -13,10 +13,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _predict(images_batch, images_aug_batch, model):
-    _, embeddings, _ = model(images_batch, training=False, input_type="syn")
-    _, embeddings_augmented, _ = model(
-        images_aug_batch, training=False, input_type="syn"
-    )
+    embeddings = model(images_batch, training=False)
+    embeddings_augmented = model(images_aug_batch, training=False)
     embeddings = embeddings + embeddings_augmented
 
     if np.all(embeddings.numpy() == 0):

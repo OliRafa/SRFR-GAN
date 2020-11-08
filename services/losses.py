@@ -23,19 +23,22 @@ from training.vgg import create_vgg_model
 class Loss:
     def __init__(
         self,
-        synthetic_images,
+        accuracy_function,
         batch_size: int,
-        train_summary_writer,
-        perceptual_weight,
-        generator_weight,
-        l1_weight,
+        summary_writer,
+        perceptual_weight: float = 0.0,
+        generator_weight: float = 0.0,
+        l1_weight: float = 0.0,
         face_recognition_weight: float = 0.1,
         super_resolution_weight: float = 0.1,
+        scale: int = 64,
+        margin: float = 0.5,
+        num_classes: int = 2,
     ):
         self.LOGGER = logging.getLogger(__name__)
-        self.train_summary_writer = train_summary_writer
+        self.summary_writer = summary_writer
 
-        self.accuracy = synthetic_images
+        self.accuracy = accuracy_function
 
         self.batch_size = batch_size
         self.vgg = create_vgg_model()
@@ -45,6 +48,9 @@ class Loss:
         self.l1_weight = l1_weight
         self.face_recognition_weight = face_recognition_weight
         self.super_resolution_weight = super_resolution_weight
+        self.scale = scale
+        self.margin = margin
+        self.num_classes = num_classes
 
         self._compute_categorical_crossentropy = distributed_sum_over_batch_size(
             batch_size
@@ -101,7 +107,7 @@ class Loss:
         )
         l1_loss = self.l1_weight * compute_l1_loss(super_resolution, ground_truth)
 
-        with self.train_summary_writer.as_default():
+        with self.summary_writer.as_default():
             tf.summary.scalar(
                 "Perceptual Loss",
                 perceptual_loss,
@@ -122,36 +128,30 @@ class Loss:
             [perceptual_loss, generator_loss, l1_loss], name="sr_loss"
         )
 
-    # def _compute_arcloss(
-    #    self, embeddings, ground_truth, num_classes: int, net_type: str = "syn"
-    # ) -> float:
-    #    """Compute the ArcLoss.
-    #
-    #    ### Parameters
-    #        embeddings: Batch of Embedding vectors where loss will be calculated on.
-    #        ground_truth: Batch of Ground Truth classes.
-    #        fc_weights: Weights extracted from the last Fully Connected layer of\
-    #        the network (Embedding layer).
-    #        num_classes: Total number of classes in the dataset.
-    #        scale:
-    #        margin:
-    #
-    #    ### Returns
-    #        The loss value."""
-    #    original_target_embeddings = embeddings
-    #    cos_theta = original_target_embeddings / self.scale
-    #    theta = tf.acos(cos_theta)
-    #
-    #    z = theta + self.margin
-    #    marginal_target_embeddings = tf.cos(z) * self.scale
-    #
-    #    one_hot_vector = tf.one_hot(ground_truth, depth=num_classes)
-    #
-    #    difference = marginal_target_embeddings - original_target_embeddings
-    #    new_one_hot = one_hot_vector * difference
-    #
-    #    softmax_output = apply_softmax(original_target_embeddings + new_one_hot)
-    #    return self._compute_categorical_crossentropy(softmax_output, one_hot_vector)
+    @tf.function
+    def compute_arcloss(self, embeddings, ground_truth) -> float:
+        """Compute the ArcLoss.
+
+        ### Parameters
+            embeddings: Batch of Embedding vectors where loss will be calculated on.
+            ground_truth: Batch of Ground Truth classes.
+
+        ### Returns
+            The loss value."""
+        original_target_embeddings = embeddings
+        cos_theta = original_target_embeddings / self.scale
+        theta = tf.acos(cos_theta)
+
+        z = theta + self.margin
+        marginal_target_embeddings = tf.cos(z) * self.scale
+
+        one_hot_vector = tf.one_hot(ground_truth, depth=self.num_classes)
+
+        difference = marginal_target_embeddings - original_target_embeddings
+        new_one_hot = one_hot_vector * difference
+
+        softmax_output = apply_softmax(original_target_embeddings + new_one_hot)
+        return self._compute_categorical_crossentropy(softmax_output, one_hot_vector)
 
     # @tf.function
     def compute_joint_loss(
@@ -203,7 +203,7 @@ class Loss:
             fr_loss = synthetic_face_recognition_loss + natural_face_recognition_loss
             return fr_loss + self.super_resolution_weight * super_resolution_loss
 
-        with self.train_summary_writer.as_default():
+        with self.summary_writer.as_default():
             tf.summary.scalar(
                 "SR Generator",
                 super_resolution_loss,

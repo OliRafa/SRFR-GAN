@@ -217,7 +217,7 @@ class BaseTraining:
         synthetic_train = casia_dataset.normalize_dataset(synthetic_train)
 
         synthetic_train = synthetic_train.cache(str(self._CACHE_PATH.joinpath("train")))
-        # synthetic_dataset_len = casia_dataset.get_dataset_size(synthetic_train)
+        synthetic_dataset_len = casia_dataset.get_train_dataset_len()
         synthetic_train = (
             synthetic_train.shuffle(buffer_size=2_048)
             .batch(batch_size, drop_remainder=True)
@@ -240,8 +240,7 @@ class BaseTraining:
         return (
             synthetic_train,
             synthetic_test,
-            100000,
-            # synthetic_dataset_len,
+            synthetic_dataset_len,
             synthetic_num_classes,
         )
 
