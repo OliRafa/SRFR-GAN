@@ -8,7 +8,7 @@ docker run --gpus all -d --privileged=true -v $LOCAL_WORKSPACE_FOLDER/datasets:/
 
 # Validate
 docker build --rm . -t "srfr:validate" -f Dockerfile.validate
-docker run --gpus all -d --privileged=true -v $LOCAL_WORKSPACE_FOLDER/data/datasets:/app/data/datasets -v $LOCAL_WORKSPACE_FOLDER/data/temp:/app/data/temp -v $LOCAL_WORKSPACE_FOLDER/data/logs:/app/data/logs -v $LOCAL_WORKSPACE_FOLDER/data/training_checkpoints:/app/data/training_checkpoints --restart on-failure --name srfr-validate srfr:validate
+docker run --gpus all -d --privileged=true -v $LOCAL_WORKSPACE_FOLDER/data/datasets:/app/data/datasets -v $LOCAL_WORKSPACE_FOLDER/output:/app/output -v $LOCAL_WORKSPACE_FOLDER/data:/app/data --restart on-failure --name srfr-validate srfr:validate
 
 # Train Logs
 docker cp srfr:/app/train_logs.txt .
