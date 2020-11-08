@@ -33,12 +33,22 @@ class CasiaWebface(BaseRepository):
 
         self._dataset = self.get_concatenated_dataset()
         self._dataset = self._dataset.cache(str(BASE_CACHE_PATH.joinpath("base")))
-        self._dataset_size = self.get_dataset_size(self._dataset)
+        self._dataset_size = 446_883
 
     def get_train_dataset(self):
         self._logger.info(f" Loading CASIA-Webface in train mode.")
 
         return self._dataset.take(int(0.9 * self._dataset_size))
+
+    def get_train_dataset_len(self):
+        if self._remove_overlaps:
+            return 804_384
+        return 0
+
+    def get_test_dataset_len(self):
+        if self._remove_overlaps:
+            return 44_672
+        return 0
 
     def get_test_dataset(self):
         self._logger.info(f" Loading CASIA-Webface in test mode.")
@@ -73,7 +83,7 @@ class CasiaWebface(BaseRepository):
         return num_classes
 
     def get_number_of_classes(self) -> Union[int, Tuple[int]]:
-        return 10574
+        return 10_574
 
     def get_dataset_size(self, dataset):
         return super()._get_dataset_size(dataset)

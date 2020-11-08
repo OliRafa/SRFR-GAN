@@ -4,9 +4,9 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.losses import (
     BinaryCrossentropy,
+    CategoricalCrossentropy,
     MeanAbsoluteError,
     MeanSquaredError,
-    SparseCategoricalCrossentropy,
 )
 
 
@@ -78,7 +78,7 @@ def compute_categorical_crossentropy(logits, labels) -> float:
     # return CategoricalCrossentropy()(  # reduction=keras.losses.Reduction.NONE)(
     #    logits, labels
     # )
-    return SparseCategoricalCrossentropy(reduction=keras.losses.Reduction.NONE)(
+    return CategoricalCrossentropy(reduction=keras.losses.Reduction.NONE)(
         labels, logits
     )
 

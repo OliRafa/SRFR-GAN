@@ -31,7 +31,7 @@ from models.discriminator import DiscriminatorNetwork
 from models.srfr import SRFR
 from repositories.casia import CasiaWebface
 from services.losses import Loss
-from use_cases.train_model_use_case import TrainModelUseCase
+from use_cases.train.train_model_joint_learn import TrainModelJointLearnUseCase
 from utils.input_data import parseConfigsFile
 
 # Importar Natural DS.
@@ -82,7 +82,7 @@ class BaseTraining:
             synthetic_num_classes, network_settings, preprocess_settings
         )
 
-        train_model_use_case = TrainModelUseCase(
+        train_model_use_case = TrainModelJointLearnUseCase(
             self.strategy,
             TimingLogger(),
             self.logger,
@@ -130,7 +130,7 @@ class BaseTraining:
         perceptual_weight,
         generator_weight,
         l1_weight,
-        train_model_use_case: TrainModelUseCase,
+        train_model_use_case: TrainModelJointLearnUseCase,
         srfr_model,
         discriminator_model,
         batch_size,
@@ -217,7 +217,7 @@ class BaseTraining:
         synthetic_train = casia_dataset.normalize_dataset(synthetic_train)
 
         synthetic_train = synthetic_train.cache(str(self._CACHE_PATH.joinpath("train")))
-        # synthetic_dataset_len = casia_dataset.get_dataset_size(synthetic_train)
+        synthetic_dataset_len = casia_dataset.get_train_dataset_len()
         synthetic_train = (
             synthetic_train.shuffle(buffer_size=2_048)
             .batch(batch_size, drop_remainder=True)
@@ -240,8 +240,7 @@ class BaseTraining:
         return (
             synthetic_train,
             synthetic_test,
-            100000,
-            # synthetic_dataset_len,
+            synthetic_dataset_len,
             synthetic_num_classes,
         )
 

@@ -5,10 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from services.losses import Loss
-from services.train import Train
-from train import _create_checkpoint_and_manager, _instantiate_models
-from utils.input_data import VggFace2, parseConfigsFile
+# from base_training import _create_checkpoint_and_manager, _instantiate_models
+# from services.losses import Loss
+# from services.train import Train
+
+# from utils.input_data import VggFace2, parseConfigsFile
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # isort:skip
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"  # isort:skip
@@ -224,50 +225,50 @@ def summary_writer():
     )
 
 
-@pytest.fixture
-def instantiate_training(summary_writer) -> Train:
-    strategy = tf.distribute.OneDeviceStrategy("/cpu:0")
-    network_settings, train_settings, preprocess_settings = parseConfigsFile(
-        ["network", "train", "preprocess"]
-    )
-    BATCH_SIZE = train_settings["batch_size"] * strategy.num_replicas_in_sync
-    synthetic_num_classes = VggFace2(mode="concatenated").get_number_of_classes()
-    (
-        srfr_model,
-        discriminator_model,
-        srfr_optimizer,
-        discriminator_optimizer,
-    ) = _instantiate_models(
-        strategy,
-        network_settings,
-        train_settings,
-        preprocess_settings,
-        synthetic_num_classes,
-    )
-    checkpoint, manager = _create_checkpoint_and_manager(
-        srfr_model, discriminator_model, srfr_optimizer, discriminator_optimizer
-    )
-    loss = Loss(
-        BATCH_SIZE,
-        summary_writer,
-        train_settings["super_resolution_weight"],
-        train_settings["scale"],
-        train_settings["angular_margin"],
-    )
-    # TrainModelUseCase(
-    #    strategy, loss, summary_writer, None, None, checkpoint, manager
-    # )._try_restore_checkpoint()
-    return Train(
-        strategy,
-        srfr_model,
-        srfr_optimizer,
-        discriminator_model,
-        discriminator_optimizer,
-        summary_writer,
-        checkpoint,
-        manager,
-        loss,
-    )
+# @pytest.fixture
+# def instantiate_training(summary_writer) -> Train:
+#    strategy = tf.distribute.OneDeviceStrategy("/cpu:0")
+#    network_settings, train_settings, preprocess_settings = parseConfigsFile(
+#        ["network", "train", "preprocess"]
+#    )
+#    BATCH_SIZE = train_settings["batch_size"] * strategy.num_replicas_in_sync
+#    synthetic_num_classes = VggFace2(mode="concatenated").get_number_of_classes()
+#    (
+#        srfr_model,
+#        discriminator_model,
+#        srfr_optimizer,
+#        discriminator_optimizer,
+#    ) = _instantiate_models(
+#        strategy,
+#        network_settings,
+#        train_settings,
+#        preprocess_settings,
+#        synthetic_num_classes,
+#    )
+#    checkpoint, manager = _create_checkpoint_and_manager(
+#        srfr_model, discriminator_model, srfr_optimizer, discriminator_optimizer
+#    )
+#    loss = Loss(
+#        BATCH_SIZE,
+#        summary_writer,
+#        train_settings["super_resolution_weight"],
+#        train_settings["scale"],
+#        train_settings["angular_margin"],
+#    )
+#    # TrainModelUseCase(
+#    #    strategy, loss, summary_writer, None, None, checkpoint, manager
+#    # )._try_restore_checkpoint()
+#    return Train(
+#        strategy,
+#        srfr_model,
+#        srfr_optimizer,
+#        discriminator_model,
+#        discriminator_optimizer,
+#        summary_writer,
+#        checkpoint,
+#        manager,
+#        loss,
+#    )
 
 
 @pytest.fixture

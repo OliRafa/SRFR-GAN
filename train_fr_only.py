@@ -4,6 +4,7 @@
 import logging
 from functools import partial
 from pathlib import Path
+from typing import Dict
 
 import tensorflow as tf
 from skopt import gp_minimize
@@ -24,15 +25,20 @@ if gpus:
         print(str(e))
 
 
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
+from tensorflow_addons.optimizers import AdamW
+
 from base_training import BaseTraining
 from models.discriminator import DiscriminatorNetwork
-from models.srfr_sr_only import SrfrSrOnly
+from models.srfr_fr_only import SrfrFrOnly
 from services.losses import Loss
-from use_cases.train.train_model_sr_only import TrainModelSrOnlyUseCase
-from utils.input_data import parseConfigsFile
+from use_cases.train.train_model_fr_only import TrainModelFrOnlyUseCase
+from utils.input_data import LFW, parseConfigsFile
+
+AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
-class TrainingSrOnly(BaseTraining):
+class TrainingFrOnly(BaseTraining):
     def __init__(self):
         logging.basicConfig(
             filename="train_logs.txt",
@@ -73,11 +79,13 @@ class TrainingSrOnly(BaseTraining):
             synthetic_num_classes,
         ) = self._get_datasets(BATCH_SIZE)
 
-        srfr_model, discriminator_model = self._instantiate_models(
-            synthetic_num_classes, network_settings, preprocess_settings
+        validation_dataset = self._get_validation_dataset(BATCH_SIZE)
+
+        srfr_model = self._instantiate_models(
+            synthetic_num_classes, network_settings, preprocess_settings, train_settings
         )
 
-        train_model_sr_only_use_case = TrainModelSrOnlyUseCase(
+        train_model_sr_only_use_case = TrainModelFrOnlyUseCase(
             self.strategy,
             TimingLogger(),
             self.logger,
@@ -89,17 +97,16 @@ class TrainingSrOnly(BaseTraining):
             self._fitness_function,
             train_model_use_case=train_model_sr_only_use_case,
             srfr_model=srfr_model,
-            discriminator_model=discriminator_model,
             batch_size=BATCH_SIZE,
             synthetic_train=synthetic_train,
-            synthetic_test=synthetic_test,
+            validation_dataset=validation_dataset,
             num_classes=synthetic_num_classes,
             train_settings=train_settings,
             hparams=hyperparameters,
         )
         _train = use_named_args(dimensions=dimensions)(_training)
 
-        initial_parameters = [0.0002, 0.9, 1.0, 0.005, 0.01]
+        initial_parameters = [0.0002, 0.9, 10_000, 0.0005]
 
         search_result = gp_minimize(
             func=_train,
@@ -115,15 +122,13 @@ class TrainingSrOnly(BaseTraining):
         self,
         learning_rate,
         beta_1,
-        perceptual_weight,
-        generator_weight,
-        l1_weight,
-        train_model_use_case: TrainModelSrOnlyUseCase,
+        learning_rate_decay_steps,
+        weight_decay,
+        train_model_use_case: TrainModelFrOnlyUseCase,
         srfr_model,
-        discriminator_model,
         batch_size,
         synthetic_train,
-        synthetic_test,
+        validation_dataset,
         num_classes,
         train_settings,
         hparams,
@@ -131,104 +136,121 @@ class TrainingSrOnly(BaseTraining):
         (
             HP_LEARNING_RATE,
             HP_BETA_1,
-            HP_PERCEPTUAL_WEIGHT,
-            HP_GENERATOR_WEIGHT,
-            HP_L1_WEIGHT,
+            HP_LEARNING_RATE_DECAY_STEPS,
+            HP_WEIGHT_DECAY,
         ) = hparams
         tensorboard_params = {
             HP_LEARNING_RATE: learning_rate,
             HP_BETA_1: beta_1,
-            HP_PERCEPTUAL_WEIGHT: perceptual_weight,
-            HP_GENERATOR_WEIGHT: generator_weight,
-            HP_L1_WEIGHT: l1_weight,
+            HP_LEARNING_RATE_DECAY_STEPS: learning_rate_decay_steps,
+            HP_WEIGHT_DECAY: weight_decay,
         }
-        srfr_optimizer, discriminator_optimizer = self._instantiate_optimizers(
-            learning_rate, beta_1, train_settings
+
+        learning_rate = self._instantiate_learning_rate(
+            learning_rate, learning_rate_decay_steps
+        )
+        srfr_optimizer = self._instantiate_optimizers(
+            learning_rate, beta_1, weight_decay, train_settings
         )
 
         summary_writer = self._create_summary_writer()
-        metrics = self._instantiate_metrics()
 
         loss = Loss(
-            metrics,
+            None,
             batch_size,
             summary_writer,
-            perceptual_weight,
-            generator_weight,
-            l1_weight,
+            scale=train_settings["scale"],
+            margin=train_settings["angular_margin"],
+            num_classes=num_classes,
         )
 
         train_model_use_case.summary_writer = summary_writer
 
         return train_model_use_case.execute(
             srfr_model,
-            discriminator_model,
             srfr_optimizer,
-            discriminator_optimizer,
             synthetic_train,
-            synthetic_test,
+            validation_dataset,
             loss,
             tensorboard_params,
         )
 
-    def _instantiate_metrics(self):
-        with self.strategy.scope():
-            return tf.keras.metrics.Mean(name="mean_psnr")
+    def _get_validation_dataset(self, BATCH_SIZE: int):
+        lfw = LFW()
+        left_pairs, right_pairs, is_same_list = lfw.get_dataset()
+        left_pairs = left_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+        left_pairs = self.strategy.experimental_distribute_dataset(left_pairs)
+
+        right_pairs = right_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+        right_pairs = self.strategy.experimental_distribute_dataset(right_pairs)
+
+        return left_pairs, right_pairs, is_same_list
 
     def _instantiate_models(
         self,
-        synthetic_num_classes,
-        network_settings,
-        preprocess_settings,
+        num_classes: int,
+        network_settings: Dict,
+        preprocess_settings: Dict,
+        train_settings: Dict,
     ):
         self.logger.info(" -------- Creating Models --------")
 
         with self.strategy.scope():
-            srfr_model = SrfrSrOnly(
-                num_filters=network_settings["num_filters"],
-                num_gc=network_settings["gc"],
-                num_blocks=network_settings["num_blocks"],
-                residual_scailing=network_settings["residual_scailing"],
+            return SrfrFrOnly(
+                depth=50,
+                categories=network_settings["embedding_size"],
+                num_classes=num_classes,
+                scale=train_settings["scale"],
                 training=True,
                 input_shape=preprocess_settings["image_shape_low_resolution"],
             )
-            discriminator_model = DiscriminatorNetwork()
 
-        return srfr_model, discriminator_model
+    def _instantiate_optimizers(
+        self, learning_rate, beta_1, weight_decay, train_settings
+    ):
+        self.logger.info(" -------- Creating Optimizers --------")
+
+        with self.strategy.scope():
+            srfr_optimizer = AdamW(
+                learning_rate=learning_rate,
+                beta_1=beta_1,
+                beta_2=train_settings["beta_2"],
+                weight_decay=weight_decay,
+                name="adam_srfr",
+            )
+            return mixed_precision.LossScaleOptimizer(
+                srfr_optimizer,
+                loss_scale="dynamic",
+            )
 
     @staticmethod
     def _create_dimensions():
         return [
             Real(low=1.0e-4, high=7.0e-3, prior="log-uniform", name="learning_rate"),
             Real(low=0.5, high=0.9, prior="log-uniform", name="beta_1"),
-            Real(low=1.0e-3, high=1.0, prior="log-uniform", name="perceptual_weight"),
-            Real(low=1.0e-3, high=7.0e-2, prior="log-uniform", name="generator_weight"),
-            Real(low=1.0e-2, high=9.0e-2, prior="log-uniform", name="l1_weight"),
+            Integer(low=1_000, high=10_000, name="learning_rate_decay_steps"),
+            Real(low=1.0e-4, high=1.0e-3, prior="log-uniform", name="weight_decay"),
         ]
 
     @staticmethod
     def _create_hyprparameters_domain():
         HP_LEARNING_RATE = hp.HParam(
             "learning_rate",
-            hp.RealInterval(1.0e-3, 7.0e-3),
+            hp.RealInterval(1.0e-4, 7.0e-3),
         )
         HP_BETA_1 = hp.HParam("beta_1", hp.RealInterval(0.5, 0.9))
-        HP_PERCEPTUAL_WEIGHT = hp.HParam(
-            "perceptual_weight", hp.RealInterval(1.0e-3, 1.0)
+        HP_LEARNING_RATE_DECAY_STEPS = hp.HParam(
+            "learning_rate_decay_steps", hp.Discrete(range(1_000, 10_000 + 1))
         )
-        HP_GENERATOR_WEIGHT = hp.HParam(
-            "generator_weight", hp.RealInterval(1.0e-3, 7.0e-2)
-        )
-        HP_L1_WEIGHT = hp.HParam("l1_weight", hp.RealInterval(1.0e-2, 9.0e-2))
+        HP_WEIGHT_DECAY = hp.HParam("weight_decay", hp.RealInterval(1.0e-4, 1.0e-3))
 
         return [
             HP_LEARNING_RATE,
             HP_BETA_1,
-            HP_PERCEPTUAL_WEIGHT,
-            HP_GENERATOR_WEIGHT,
-            HP_L1_WEIGHT,
+            HP_LEARNING_RATE_DECAY_STEPS,
+            HP_WEIGHT_DECAY,
         ]
 
 
 if __name__ == "__main__":
-    TrainingSrOnly().train()
+    TrainingFrOnly().train()
