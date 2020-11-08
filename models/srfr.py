@@ -55,7 +55,7 @@ class SRFR(Model):
             num_blocks,
             residual_scailing,
         )
-        self._face_recognition = ResNet(depth, categories, training)
+        self._face_recognition = ResNet(depth, categories, training, None)
         if self._training:
             if both:
                 self._fc_classification_nat = Dense(

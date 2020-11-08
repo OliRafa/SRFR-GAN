@@ -1,16 +1,9 @@
 """ResNet Model.
 Only the ResNet50, Resnet101 and ResNet152 were implemented."""
 from tensorflow.keras import Model, Sequential
-from tensorflow.keras.layers import (
-    Add,
-    BatchNormalization,
-    Conv2D,
-    Dense,
-    Dropout,
-    Flatten,
-    MaxPool2D,
-    ZeroPadding2D,
-)
+from tensorflow.keras.layers import (Add, BatchNormalization, Conv2D, Dense,
+                                     Dropout, Flatten, MaxPool2D,
+                                     ZeroPadding2D)
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 from tensorflow_addons.activations import mish
 from utils.input_data import load_resnet_config
@@ -47,6 +40,7 @@ class Shortcut(Model):
     def call(self, input_tensor):
         output = self._conv(input_tensor)
         return self._bn(output)
+
 
 
 class Bottleneck(Model):
@@ -116,12 +110,15 @@ class ResNet(Model):
         The ResNet model.
     """
 
-    def __init__(self, depth=50, categories=512, trainable=False):
+    def __init__(
+        self, depth=50, categories=512, trainable=False, input_shape=(112, 112, 3)
+    ):
         super(ResNet, self).__init__()
         network_configs, layer_configs = load_resnet_config()
         self._trainable = trainable
 
         self._input = Conv2D(
+            input_shape=input_shape,
             filters=64,
             kernel_size=(7, 7),
             strides=2,
@@ -150,13 +147,10 @@ class ResNet(Model):
             momentum=0.9,
             epsilon=2e-05,
             trainable=self._trainable,
-            dtype="float32",
         )
 
     def _generate_layers(self, layers, filters):
         conv2 = Sequential(name="conv_2")
-        conv2.add(Bottleneck(filters["conv_2"], 2, True, self._trainable))
-        for _ in range(1, layers[0]):
             conv2.add(Bottleneck(filters["conv_2"], 1, self._trainable))
 
         conv3 = Sequential(name="conv_3")
