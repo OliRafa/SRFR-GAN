@@ -1,25 +1,22 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Layer
+from tensorflow.keras.layers import Dense, Layer
 from training.metrics import normalize
 
 
-class ArcLossLayer(Layer):
-    def __init__(self, units: int, scale: int, **kwargs):
-        super(ArcLossLayer, self).__init__(**kwargs)
-        self.units = units
+class ArcLossLayer(Dense):
+    def __init__(self, scale: int, **kwargs):
+        super(ArcLossLayer, self).__init__(use_bias=False, activation=None, **kwargs)
         self.scale = scale
 
-    def build(self, input_shape):
-        self.w = self.add_weight(
-            shape=(input_shape[-1], self.units),
-            initializer="random_normal",
-            trainable=True,
-        )
-
     def call(self, inputs):
-        normalized_weights = normalize(self.w, name="weights_normalization")
+        normalized_weights = normalize(self.kernel, name="weights_normalization")
 
         normalized_inputs = normalize(inputs, axis=1, name="embeddings_normalization")
         normalized_inputs *= self.scale
 
         return tf.matmul(normalized_inputs, normalized_weights)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({"scale": self.scale})
+        return config
