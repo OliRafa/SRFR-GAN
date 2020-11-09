@@ -64,7 +64,10 @@ def main():
         )
 
         for model_checkpoint in manager.checkpoints:
-            checkpoint.restore(model_checkpoint)
+            try:
+                checkpoint.restore(model_checkpoint)
+            except:
+                continue
             LOGGER.info(f" Restored from {model_checkpoint}")
 
             validate_model_use_case.execute(srfr_model, BATCH_SIZE, checkpoint)
