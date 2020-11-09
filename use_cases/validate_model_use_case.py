@@ -1,6 +1,6 @@
 import tensorflow as tf
 from utils.timing import TimingLogger
-from validation.validate import validate_model_on_lfw
+from validation.validate import get_images, validate_model_on_lfw
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
@@ -31,6 +31,7 @@ class ValidateModelUseCase:
             right_pairs,
             is_same_list,
         )
+        lr_images, sr_images = get_images(self.strategy, model, left_pairs)
         elapsed_time = self.timing.end(validate_model_on_lfw.__name__, True)
         self._save_validation_data(
             checkpoint,
@@ -42,6 +43,8 @@ class ValidateModelUseCase:
             auc,
             eer,
             elapsed_time,
+            lr_images,
+            sr_images,
         )
         return accuracy_mean
 
@@ -56,6 +59,8 @@ class ValidateModelUseCase:
         auc,
         eer,
         elapsed_time,
+        lr_images,
+        sr_images,
     ):
         with self.summary_writer.as_default():
             tf.summary.scalar(
@@ -69,6 +74,18 @@ class ValidateModelUseCase:
             tf.summary.scalar("far", far, step=checkpoint.step)
             tf.summary.scalar("auc", auc, step=checkpoint.step)
             tf.summary.scalar("eer", eer, step=checkpoint.step)
+            tf.summary.image(
+                f"LR Images",
+                tf.concat(lr_images.values, axis=0),
+                max_outputs=32,
+                step=checkpoint.step,
+            )
+            tf.summary.image(
+                f"SR Images",
+                tf.concat(sr_images.values, axis=0),
+                max_outputs=32,
+                step=checkpoint.step,
+            )
 
         self.logger.info(
             (

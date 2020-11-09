@@ -13,8 +13,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 def _predict(images_batch, images_aug_batch, model):
-    embeddings = model(images_batch, training=False)
-    embeddings_augmented = model(images_aug_batch, training=False)
+    _, embeddings = model(images_batch, training=False)
+    _, embeddings_augmented = model(images_aug_batch, training=False)
     embeddings = embeddings + embeddings_augmented
 
     if np.all(embeddings.numpy() == 0):
@@ -120,3 +120,16 @@ def validate_model_on_lfw(
     auc = metrics.auc(fpr, tpr)
     eer = brentq(lambda x: 1.0 - x - interpolate.interp1d(fpr, tpr)(x), 0.0, 1.0)
     return np.mean(accuracy), np.std(accuracy), val, val_std, far, auc, eer
+
+
+def get_images(strategy, model, dataset):
+    for images_batch, _ in dataset:
+        super_resolution_images = strategy.run(
+            _get_super_resolution_images, args=(images_batch, model)
+        )
+        return images_batch, super_resolution_images
+
+
+def _get_super_resolution_images(image_batch, model):
+    super_resolution_images, _ = model(image_batch, training=False)
+    return super_resolution_images
