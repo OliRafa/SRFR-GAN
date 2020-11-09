@@ -80,7 +80,7 @@ class SRFR(Model):
             self._fc_classification_syn.build(tf.TensorShape([None, 512]))
 
     @tf.function
-    def _call_evaluating(self, input_tensor, input_type: str = "nat"):
+    def _call_evaluating(self, input_tensor, input_type: str = "syn"):
         if input_type == "syn":
             outputs = self._synthetic_input(input_tensor)
         else:
