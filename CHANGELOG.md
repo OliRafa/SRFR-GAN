@@ -1,3 +1,101 @@
+## 5.0.0 (2020-11-09)
+
+### Fix
+
+- **models**: fix identation on resnet
+- **models**: fix model saving
+- **models**: fix ArcLossLayer
+- **training**: fix TrainModelJointLearnUseCase import on base_training
+
+### Feat
+
+- **validation**: add lr and sr images to visualization
+
+## 3.1.0 (2020-10-31)
+
+### Feat
+
+- add train super resolution only
+
+### Fix
+
+- **repository**: fix inadequate use of space by shuffling before caching
+
+### Refactor
+
+- change output dir
+
+## 3.0.0 (2020-10-28)
+
+### Feat
+
+- **datasets**: add casia-webface
+- **hyperparameters**: add bayesian optimizer
+
+### Refactor
+
+- **scripts_to_tfrecords**: refac casia script to work with shardding
+- **repository**: change path for class_pairs and overlapping_identities
+
+### Fix
+
+- **dataset**: fix remainders when batching the dataset
+- **test**: fix test dataset, and accuracy function
+- **visualization**: fix tensorboard not catching hyperparameter runs, accuracy not being displayed, and training being stopped
+
+## 2.1.0 (2020-10-18)
+
+### Feat
+
+- **hyperparameters**: lower learning rate
+
+## 2.0.0 (2020-10-17)
+
+### Fix
+
+- **validation**: fix validation not compatible with model's outputs
+- **testing**: fix testing loop
+- **testing**: fix model test during training
+
+### Feat
+
+- **hyperparameters**: lower beta_1 and face_recognition_weight
+
+## 1.10.0 (2020-10-15)
+
+### Feat
+
+- **hyperparameters**: change super_resolution_weight, perceptual_weight, generator_weight, l1_weight
+- **train**: add cosine decay as a learning rate scheduler
+- **visualization**: add more info about loss function on tensorboard
+- **models**: change UpSampling2D to Conv2DTranspose on generator
+
+### Perf
+
+- **validation**: moved cache from disk to ram and add prefetching
+- **data**: add prefetch and change cache buffer from hdd to memory
+- **data**: add prefetch and change cache buffer from hdd to memory
+
+### Fix
+
+- fix summary writer path
+- **save_metrics**: correct saving to logger file
+- **models**: fix sr output size
+
+## 1.7.0 (2020-10-04)
+
+### Feat
+
+- **hyperparameters**: change lr, momentum, beta_2 and weight_decay
+
+### Fix
+
+- correct train path, from training to services
+
+### Refactor
+
+- **models**: rollback resnet model to batch normalization implementation
+
 ## 4.0.0 (2020-11-08)
 
 ### Fix
