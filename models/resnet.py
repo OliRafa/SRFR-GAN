@@ -1,9 +1,16 @@
 """ResNet Model.
 Only the ResNet50, Resnet101 and ResNet152 were implemented."""
 from tensorflow.keras import Model, Sequential
-from tensorflow.keras.layers import (Add, BatchNormalization, Conv2D, Dense,
-                                     Dropout, Flatten, MaxPool2D,
-                                     ZeroPadding2D)
+from tensorflow.keras.layers import (
+    Add,
+    BatchNormalization,
+    Conv2D,
+    Dense,
+    Dropout,
+    Flatten,
+    MaxPool2D,
+    ZeroPadding2D,
+)
 from tensorflow.keras.mixed_precision import experimental as mixed_precision
 from tensorflow_addons.activations import mish
 from utils.input_data import load_resnet_config
@@ -40,7 +47,6 @@ class Shortcut(Model):
     def call(self, input_tensor):
         output = self._conv(input_tensor)
         return self._bn(output)
-
 
 
 class Bottleneck(Model):
@@ -151,7 +157,7 @@ class ResNet(Model):
 
     def _generate_layers(self, layers, filters):
         conv2 = Sequential(name="conv_2")
-            conv2.add(Bottleneck(filters["conv_2"], 1, self._trainable))
+        conv2.add(Bottleneck(filters["conv_2"], 1, self._trainable))
 
         conv3 = Sequential(name="conv_3")
         conv3.add(Bottleneck(filters["conv_3"], 2, True, self._trainable))
