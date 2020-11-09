@@ -19,7 +19,7 @@ from pathlib import Path
 
 from models.srfr import SRFR
 from use_cases.validate_model_use_case import ValidateModelUseCase
-from utils.input_data import VggFace2, parseConfigsFile
+from utils.input_data import LFW, VggFace2, parseConfigsFile
 from utils.timing import TimingLogger
 
 logging.basicConfig(
@@ -45,6 +45,7 @@ def main():
 
     vgg_dataset = VggFace2(mode="concatenated")
     synthetic_num_classes = vgg_dataset.get_number_of_classes()
+    validation_dataset = _instantiate_dataset(strategy, BATCH_SIZE)
     # synthetic_num_classes = 8529
 
     LOGGER.info(" -------- Creating Models and Optimizers --------")
@@ -70,7 +71,9 @@ def main():
                 continue
             LOGGER.info(f" Restored from {model_checkpoint}")
 
-            validate_model_use_case.execute(srfr_model, BATCH_SIZE, checkpoint)
+            validate_model_use_case.execute(
+                srfr_model, validation_dataset, BATCH_SIZE, checkpoint
+            )
 
 
 def _instantiate_models(
@@ -88,6 +91,18 @@ def _instantiate_models(
             input_shape=preprocess_settings["image_shape_low_resolution"],
             num_classes_syn=synthetic_num_classes,
         )
+
+
+def _instantiate_dataset(strategy, BATCH_SIZE: int):
+    lfw = LFW()
+    left_pairs, right_pairs, is_same_list = lfw.get_dataset()
+    left_pairs = left_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+    left_pairs = strategy.experimental_distribute_dataset(left_pairs)
+
+    right_pairs = right_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+    right_pairs = strategy.experimental_distribute_dataset(right_pairs)
+
+    return left_pairs, right_pairs, is_same_list
 
 
 def _create_checkpoint_and_manager(srfr_model):

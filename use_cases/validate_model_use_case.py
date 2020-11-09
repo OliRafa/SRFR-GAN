@@ -1,5 +1,4 @@
 import tensorflow as tf
-from utils.input_data import LFW
 from utils.timing import TimingLogger
 from validation.validate import get_images, validate_model_on_lfw
 
@@ -7,14 +6,14 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
 class ValidateModelUseCase:
-    def __init__(self, strategy, test_summary_writer, timing: TimingLogger, logger):
+    def __init__(self, strategy, summary_writer, timing: TimingLogger, logger):
         self.strategy = strategy
         self.timing = timing
-        self.test_summary_writer = test_summary_writer
+        self.summary_writer = summary_writer
         self.logger = logger
 
-    def execute(self, model, BATCH_SIZE: int, checkpoint):
-        left_pairs, right_pairs, is_same_list = self._instantiate_dataset(BATCH_SIZE)
+    def execute(self, model, dataset, BATCH_SIZE: int, checkpoint):
+        left_pairs, right_pairs, is_same_list = dataset
 
         self.timing.start(validate_model_on_lfw.__name__)
         (
@@ -47,17 +46,7 @@ class ValidateModelUseCase:
             lr_images,
             sr_images,
         )
-
-    def _instantiate_dataset(self, BATCH_SIZE: int):
-        lfw = LFW()
-        left_pairs, right_pairs, is_same_list = lfw.get_dataset()
-        left_pairs = left_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
-        left_pairs = self.strategy.experimental_distribute_dataset(left_pairs)
-
-        right_pairs = right_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
-        right_pairs = self.strategy.experimental_distribute_dataset(right_pairs)
-
-        return left_pairs, right_pairs, is_same_list
+        return accuracy_mean
 
     def _save_validation_data(
         self,
@@ -73,7 +62,7 @@ class ValidateModelUseCase:
         lr_images,
         sr_images,
     ):
-        with self.test_summary_writer.as_default():
+        with self.summary_writer.as_default():
             tf.summary.scalar(
                 "accuracy_mean",
                 accuracy_mean,

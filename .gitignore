@@ -216,3 +216,4 @@ output.log
 **/training_checkpoints/*
 **/logs/*
 **/data/keras/models/*
+**/output/*
