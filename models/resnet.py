@@ -157,7 +157,9 @@ class ResNet(Model):
 
     def _generate_layers(self, layers, filters):
         conv2 = Sequential(name="conv_2")
-        conv2.add(Bottleneck(filters["conv_2"], 1, self._trainable))
+        conv2.add(Bottleneck(filters["conv_2"], 2, True, self._trainable))
+        for _ in range(1, layers[0]):
+            conv2.add(Bottleneck(filters["conv_2"], 1, self._trainable))
 
         conv3 = Sequential(name="conv_3")
         conv3.add(Bottleneck(filters["conv_3"], 2, True, self._trainable))

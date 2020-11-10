@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Layer
+from tensorflow.keras.layers import Dense
 from training.metrics import normalize
 
 
