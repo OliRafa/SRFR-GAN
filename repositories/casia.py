@@ -32,7 +32,6 @@ class CasiaWebface(BaseRepository):
         super().set_class_pairs(self._class_pairs)
 
         self._dataset = self.get_concatenated_dataset()
-        self._dataset = self._dataset.cache(str(BASE_CACHE_PATH.joinpath("base")))
         self._dataset_size = 446_883
 
     def get_train_dataset(self):
