@@ -205,7 +205,9 @@ class GeneratorNetwork(Model):
         fea = Add()([input_tensor, trunk])
 
         fea = self._upsampling_1(fea)
+        fea = self._upsampling_conv_1(fea)
         fea = self._upsampling_2(fea)
+        fea = self._upsampling_conv_2(fea)
 
         fea = self._high_resolution_conv(fea)
         return self._last_conv(fea)

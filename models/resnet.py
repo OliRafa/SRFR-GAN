@@ -123,15 +123,27 @@ class ResNet(Model):
         network_configs, layer_configs = load_resnet_config()
         self._trainable = trainable
 
-        self._input = Conv2D(
-            input_shape=input_shape,
-            filters=64,
-            kernel_size=(7, 7),
-            strides=2,
-            activation=mish,
-            padding="valid",
-            name="conv_1",
-        )
+        if input_shape:
+            self._input = Conv2D(
+                input_shape=input_shape,
+                filters=64,
+                kernel_size=(7, 7),
+                strides=2,
+                activation=mish,
+                padding="valid",
+                name="conv_1",
+            )
+
+        else:
+            self._input = Conv2D(
+                filters=64,
+                kernel_size=(7, 7),
+                strides=2,
+                activation=mish,
+                padding="valid",
+                name="conv_1",
+            )
+
         self._max_pool = MaxPool2D(pool_size=(3, 3), strides=2, name="max_pool")
         (self._conv2, self._conv3, self._conv4, self._conv5) = self._generate_layers(
             network_configs[str(depth)], layer_configs
@@ -157,7 +169,9 @@ class ResNet(Model):
 
     def _generate_layers(self, layers, filters):
         conv2 = Sequential(name="conv_2")
-        conv2.add(Bottleneck(filters["conv_2"], 1, self._trainable))
+        conv2.add(Bottleneck(filters["conv_2"], 2, True, self._trainable))
+        for _ in range(1, layers[0]):
+            conv2.add(Bottleneck(filters["conv_2"], 1, self._trainable))
 
         conv3 = Sequential(name="conv_3")
         conv3.add(Bottleneck(filters["conv_3"], 2, True, self._trainable))
