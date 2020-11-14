@@ -89,7 +89,7 @@ class ValidateModelUseCase:
 
         self.logger.info(
             (
-                f" Validation on LFW: Step {int(checkpoint.step)} -"
+                f" Validation on LFW: Step {int(checkpoint.step.values[0])} -"
                 f" Accuracy: {accuracy_mean:.3f} +- {accuracy_std:.3f} -"
                 f" Validation Rate: {validation_rate:.3f} +-"
                 f" {validation_std:.3f} @ FAR {far:.3f} -"
