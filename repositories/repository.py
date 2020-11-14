@@ -4,6 +4,7 @@ from functools import partial
 from pathlib import Path
 from typing import List, Union
 
+import numpy as np
 import tensorflow as tf
 from utils.input_data import parseConfigsFile
 
@@ -346,13 +347,18 @@ class BaseRepository:
             else remove_overlaps
         )
 
-        paths = tf.io.matching_files(f"{str(dataset_paths)}/*")
-        paths = tf.random.shuffle(paths)
-        paths = tf.data.Dataset.from_tensor_slices(paths)
-        paths = paths.interleave(
-            _load_tfrecords, deterministic=False, num_parallel_calls=AUTOTUNE
-        )
-        return paths.shuffle(buffer_size=9000)
+        paths = self._shuffle_multiple_shards(dataset_paths)
+        # return paths.interleave(
+        #    _load_tfrecords, deterministic=False, num_parallel_calls=AUTOTUNE
+        # )
+        return _load_tfrecords(paths)
+        # return paths.shuffle(buffer_size=9000)
+
+    @staticmethod
+    def _shuffle_multiple_shards(dataset_paths: List[str]):
+        paths = np.array(list(map(lambda x: str(x), dataset_paths.glob("*"))))
+        np.random.shuffle(paths)
+        return tf.data.Dataset.from_tensor_slices(paths)
 
     def load_dataset(
         self,
