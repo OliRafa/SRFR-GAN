@@ -1,8 +1,6 @@
 from pathlib import Path
-from typing import Tuple, Union
 
 import tensorflow as tf
-from utils.input_data import parseConfigsFile
 
 from repositories.repository import BaseRepository
 
@@ -31,7 +29,7 @@ class CasiaWebface(BaseRepository):
         self._class_pairs = super()._get_class_pairs("CASIA", "concatenated")
         super().set_class_pairs(self._class_pairs)
 
-        self._dataset = self.get_concatenated_dataset()
+        self._dataset = self._initialize_dataset()
         self._dataset_size = 446_883
 
     def get_train_dataset(self):
@@ -39,12 +37,12 @@ class CasiaWebface(BaseRepository):
 
         return self._dataset.take(int(0.9 * self._dataset_size))
 
-    def get_train_dataset_len(self):
+    def get_train_dataset_len(self) -> int:
         if self._remove_overlaps:
             return 804_384
         return 0
 
-    def get_test_dataset_len(self):
+    def get_test_dataset_len(self) -> int:
         if self._remove_overlaps:
             return 44_672
         return 0
@@ -54,7 +52,7 @@ class CasiaWebface(BaseRepository):
 
         return self._dataset.skip(int(0.9 * self._dataset_size))
 
-    def get_concatenated_dataset(self):
+    def _initialize_dataset(self):
         self._logger.info(f" Loading CASIA-Webface in concatenated mode.")
 
         dataset = super().load_dataset_multiple_shards(
@@ -81,7 +79,13 @@ class CasiaWebface(BaseRepository):
         print(num_classes)
         return num_classes
 
-    def get_number_of_classes(self) -> Union[int, Tuple[int]]:
+    def get_full_dataset(self):
+        return self._dataset
+
+    def get_full_dataset_len(self) -> int:
+        return self._dataset_size
+
+    def get_number_of_classes(self) -> int:
         return 10_574
 
     def get_dataset_size(self, dataset):

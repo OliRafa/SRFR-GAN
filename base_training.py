@@ -212,7 +212,7 @@ class BaseTraining:
         self.logger.info(" -------- Importing Datasets --------")
 
         casia_dataset = CasiaWebface(self._CACHE_PATH)
-        synthetic_train = casia_dataset.get_train_dataset()
+        synthetic_train = casia_dataset.get_full_dataset()
         synthetic_train = casia_dataset.augment_dataset(synthetic_train)
         synthetic_train = casia_dataset.normalize_dataset(synthetic_train)
 
@@ -221,27 +221,16 @@ class BaseTraining:
         synthetic_train = (
             synthetic_train.shuffle(buffer_size=2_048)
             .batch(batch_size, drop_remainder=True)
-            .prefetch(AUTOTUNE)
+            .prefetch(1)
         )
         synthetic_train = self.strategy.experimental_distribute_dataset(synthetic_train)
 
-        synthetic_test = casia_dataset.get_test_dataset()
-        synthetic_test = casia_dataset.normalize_dataset(synthetic_test)
-        synthetic_test = synthetic_test.cache(str(self._CACHE_PATH.joinpath("test")))
-        synthetic_test = (
-            synthetic_test.shuffle(buffer_size=2_048)
-            .batch(batch_size, drop_remainder=True)
-            .prefetch(AUTOTUNE)
-        )
-        synthetic_test = self.strategy.experimental_distribute_dataset(synthetic_test)
-
-        synthetic_num_classes = casia_dataset.get_number_of_classes()
+        num_classes = casia_dataset.get_number_of_classes()
 
         return (
             synthetic_train,
-            synthetic_test,
             synthetic_dataset_len,
-            synthetic_num_classes,
+            num_classes,
         )
 
     @staticmethod

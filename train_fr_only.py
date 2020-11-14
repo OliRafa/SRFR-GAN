@@ -74,7 +74,6 @@ class TrainingFrOnly(BaseTraining):
 
         (
             synthetic_train,
-            synthetic_test,
             synthetic_dataset_len,
             synthetic_num_classes,
         ) = self._get_datasets(BATCH_SIZE)
