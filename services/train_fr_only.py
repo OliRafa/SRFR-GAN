@@ -106,17 +106,6 @@ class TrainFrOnly(Train):
         )
         return srfr_loss
 
-    def test_model(self, dataset) -> None:
-        self.losses.reset_accuracy_metric()
-        for (
-            _,
-            groud_truth_images,
-            ground_truth_classes,
-        ) in dataset:
-            self._call_test(groud_truth_images, ground_truth_classes)
-
-        return self.losses.get_accuracy_results() * 100
-
     def _save_metrics(
         self,
         step,

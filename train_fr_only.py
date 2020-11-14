@@ -31,14 +31,17 @@ from tensorflow_addons.optimizers import AdamW
 from base_training import BaseTraining
 from models.discriminator import DiscriminatorNetwork
 from models.srfr_fr_only import SrfrFrOnly
+from repositories.lfw import LFW
 from services.losses import Loss
 from use_cases.train.train_model_fr_only import TrainModelFrOnlyUseCase
-from utils.input_data import LFW, parseConfigsFile
+from utils.input_data import parseConfigsFile
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
 class TrainingFrOnly(BaseTraining):
+    _CACHE_PATH = Path.cwd().joinpath("output", "temp")
+
     def __init__(self):
         logging.basicConfig(
             filename="train_logs.txt",
@@ -165,7 +168,7 @@ class TrainingFrOnly(BaseTraining):
 
         train_model_use_case.summary_writer = summary_writer
 
-        return train_model_use_case.execute(
+        return -train_model_use_case.execute(
             srfr_model,
             srfr_optimizer,
             synthetic_train,
@@ -175,12 +178,20 @@ class TrainingFrOnly(BaseTraining):
         )
 
     def _get_validation_dataset(self, BATCH_SIZE: int):
-        lfw = LFW()
+        lfw = LFW(resolution="hr")
         left_pairs, right_pairs, is_same_list = lfw.get_dataset()
-        left_pairs = left_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+        left_pairs = (
+            left_pairs.batch(BATCH_SIZE)
+            .cache(str(self._CACHE_PATH.joinpath("left_pairs")))
+            .prefetch(AUTOTUNE)
+        )
         left_pairs = self.strategy.experimental_distribute_dataset(left_pairs)
 
-        right_pairs = right_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
+        right_pairs = (
+            right_pairs.batch(BATCH_SIZE)
+            .cache(str(self._CACHE_PATH.joinpath("right_pairs")))
+            .prefetch(AUTOTUNE)
+        )
         right_pairs = self.strategy.experimental_distribute_dataset(right_pairs)
 
         return left_pairs, right_pairs, is_same_list

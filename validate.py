@@ -17,9 +17,9 @@ import datetime
 import logging
 from pathlib import Path
 
-from models.srfr import SRFR
+from repositories.lfw import LFW
 from use_cases.validate_model_use_case import ValidateModelUseCase
-from utils.input_data import LFW, VggFace2, parseConfigsFile
+from utils.input_data import VggFace2, parseConfigsFile
 from utils.timing import TimingLogger
 
 logging.basicConfig(
@@ -94,7 +94,7 @@ def _instantiate_models(
 
 
 def _instantiate_dataset(strategy, BATCH_SIZE: int):
-    lfw = LFW()
+    lfw = LFW(resolution="hr")
     left_pairs, right_pairs, is_same_list = lfw.get_dataset()
     left_pairs = left_pairs.batch(BATCH_SIZE).cache().prefetch(AUTOTUNE)
     left_pairs = strategy.experimental_distribute_dataset(left_pairs)
