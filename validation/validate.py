@@ -5,7 +5,7 @@ import tensorflow as tf
 from scipy import interpolate
 from scipy.optimize import brentq
 from sklearn import metrics
-from training.metrics import normalize
+from sklearn.preprocessing import normalize
 
 from validation.lfw_helper import evaluate
 
@@ -17,7 +17,7 @@ def _predict(images_batch, images_aug_batch, model):
     _, embeddings_augmented = model(images_aug_batch, training=False)
     embeddings = embeddings + embeddings_augmented
 
-    if np.all(embeddings.numpy() == 0):
+    if tf.math.reduce_all(tf.math.equal(embeddings, 0)):
         # If the array is full of 0's, the following calcs that will use it
         # will return NaNs or 0, and at some point the validation algorithm will
         # crash at some division because of the NaNs or the 0's.
@@ -28,7 +28,7 @@ def _predict(images_batch, images_aug_batch, model):
             dtype=tf.float32,
         )
 
-    return normalize(embeddings, axis=1, name="lfw_normalize_embeddings")
+    return normalize(embeddings.numpy(), axis=1)
 
 
 def _predict_on_batch(strategy, model, dataset):
@@ -45,25 +45,21 @@ def _predict_on_batch(strategy, model, dataset):
 
             # Some tensors have NaNs among the values, so we check them and add
             # 0s in its places
-            np_tensor = tensor.numpy()
-            if np.isnan(np.sum(np_tensor)):
-                tensor = tf.convert_to_tensor(
-                    np.nan_to_num(np_tensor),
-                    dtype=tf.float32,
-                )
+            if np.isnan(np.sum(tensor)):
+                tensor = np.nan_to_num(tensor)
 
             if embeddings.size == 0:
-                embeddings = tensor.numpy()
+                embeddings = tensor
             else:
                 try:
-                    embeddings = np.concatenate((embeddings, tensor.numpy()), axis=0)
+                    embeddings = np.concatenate((embeddings, tensor), axis=0)
 
                 # Sometimes the outputted embedding array isn't in the shape of
                 # (batch_size, embedding_size), so we need to expand_dims
                 # to transform this array from (embedding_size, ) to
                 # (1, embedding_size) before concatenatting with `embeddings`
                 except ValueError:
-                    new_embeddings = np.expand_dims(tensor.numpy(), axis=0)
+                    new_embeddings = np.expand_dims(tensor, axis=0)
                     embeddings = np.concatenate((embeddings, new_embeddings), axis=0)
 
     return embeddings
