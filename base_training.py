@@ -39,7 +39,7 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
 class BaseTraining:
-    _CACHE_PATH = Path.cwd().joinpath("output", "temp")
+    _CACHE_PATH = Path.cwd().joinpath("temp")
 
     def __init__(self, logger, strategy, timing: TimingLogger):
         self.logger = logger

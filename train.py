@@ -43,7 +43,7 @@ logging.basicConfig(
     level=logging.DEBUG,
 )
 LOGGER = logging.getLogger(__name__)
-CACHE_PATH = Path.cwd().joinpath("output", "temp")
+CACHE_PATH = Path.cwd().joinpath("temp")
 if not CACHE_PATH.is_dir():
     CACHE_PATH.mkdir(parents=True)
 

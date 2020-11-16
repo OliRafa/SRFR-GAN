@@ -17,7 +17,7 @@ RUN python3 -m pip install --upgrade pip && python3 -m pip install PyYAML scipy 
 WORKDIR /app
 ADD . /app
 
-VOLUME /app/datasets
+VOLUME /app/temp
 VOLUME /app/data
 VOLUME /app/output
 
