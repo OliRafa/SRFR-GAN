@@ -59,6 +59,9 @@ class TrainModelSrOnlyUseCase(BaseTrainModelUseCase):
             train.train_with_synthetic_images_only(self.BATCH_SIZE, synthetic_train)
             accuracy = train.test_model(synthetic_test)
 
+            if tf.math.is_inf(accuracy):
+                accuracy = tf.convert_to_tensor(0.0)
+
             with self.summary_writer.as_default():
                 hp.hparams(hparams)
                 tf.summary.scalar("accuracy", accuracy, step=int(self.checkpoint.epoch))

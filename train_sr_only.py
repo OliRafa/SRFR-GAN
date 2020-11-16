@@ -11,7 +11,10 @@ from skopt.space import Integer, Real
 from skopt.utils import use_named_args
 from tensorboard.plugins.hparams import api as hp
 
+from repositories.casia import CasiaWebface
 from utils.timing import TimingLogger
+
+AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 gpus = tf.config.experimental.list_physical_devices("GPU")
 if gpus:
@@ -160,7 +163,7 @@ class TrainingSrOnly(BaseTraining):
 
         train_model_use_case.summary_writer = summary_writer
 
-        return train_model_use_case.execute(
+        return 40.0 - train_model_use_case.execute(
             srfr_model,
             discriminator_model,
             srfr_optimizer,
@@ -169,6 +172,42 @@ class TrainingSrOnly(BaseTraining):
             synthetic_test,
             loss,
             tensorboard_params,
+        )
+
+    def _get_datasets(self, batch_size):
+        self.logger.info(" -------- Importing Datasets --------")
+
+        casia_dataset = CasiaWebface(self._CACHE_PATH)
+        synthetic_train = casia_dataset.get_train_dataset()
+        synthetic_train = casia_dataset.augment_dataset(synthetic_train)
+        synthetic_train = casia_dataset.normalize_dataset(synthetic_train)
+
+        synthetic_train = synthetic_train.cache(str(self._CACHE_PATH.joinpath("train")))
+        synthetic_dataset_len = casia_dataset.get_train_dataset_len()
+        synthetic_train = (
+            synthetic_train.shuffle(buffer_size=2_048)
+            .batch(batch_size, drop_remainder=True)
+            .prefetch(AUTOTUNE)
+        )
+        synthetic_train = self.strategy.experimental_distribute_dataset(synthetic_train)
+
+        synthetic_test = casia_dataset.get_test_dataset()
+        synthetic_test = casia_dataset.normalize_dataset(synthetic_test)
+        synthetic_test = synthetic_test.cache(str(self._CACHE_PATH.joinpath("test")))
+        synthetic_test = (
+            synthetic_test.shuffle(buffer_size=2_048)
+            .batch(batch_size, drop_remainder=True)
+            .prefetch(AUTOTUNE)
+        )
+        synthetic_test = self.strategy.experimental_distribute_dataset(synthetic_test)
+
+        synthetic_num_classes = casia_dataset.get_number_of_classes()
+
+        return (
+            synthetic_train,
+            synthetic_test,
+            synthetic_dataset_len,
+            synthetic_num_classes,
         )
 
     def _instantiate_metrics(self):

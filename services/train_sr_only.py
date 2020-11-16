@@ -165,7 +165,7 @@ class TrainSrOnly(Train):
         ) in dataset:
             self._call_test(synthetic_images, groud_truth_images)
 
-        return self.losses.get_accuracy_results() * 100
+        return self.losses.get_accuracy_results()
 
     @tf.function
     def _call_test(self, synthetic_images, groud_truth_images):
